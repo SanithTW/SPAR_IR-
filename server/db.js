@@ -1,13 +1,31 @@
+const fs = require('fs');
 const Database = require('better-sqlite3');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 
-const dbPath = path.join(__dirname, 'posm.db');
+let dbPath = path.join(__dirname, 'posm.db');
+
+if (process.env.VERCEL) {
+  const tmpDb = path.join('/tmp', 'posm.db');
+  try {
+    if (!fs.existsSync(tmpDb) && fs.existsSync(dbPath)) {
+      fs.copyFileSync(dbPath, tmpDb);
+    }
+    dbPath = tmpDb;
+  } catch (err) {
+    console.error('Error copying posm.db to /tmp on Vercel:', err);
+  }
+}
+
 const db = new Database(dbPath);
 
-// Enable foreign keys and WAL mode for high reliability
+// Enable foreign keys and journal mode
 db.pragma('foreign_keys = ON');
-db.pragma('journal_mode = WAL');
+if (!process.env.VERCEL) {
+  db.pragma('journal_mode = WAL');
+} else {
+  db.pragma('journal_mode = MEMORY');
+}
 
 function initSchema() {
   db.exec(`

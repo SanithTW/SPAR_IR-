@@ -4,9 +4,10 @@
   "description": "SPAR SaveMor POSM Tracker - Web Application (Node.js & React)",
   "scripts": {
     "server": "node server/index.js",
-    "client": "npm.cmd run dev --prefix client",
-    "dev": "concurrently \"npm.cmd run server\" \"npm.cmd run client\"",
-    "build": "npm.cmd run build --prefix client",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npm run build --prefix client",
+    "vercel-build": "npm install --prefix client && npm run build --prefix client",
     "sync:supabase": "node server/sync_to_supabase.js"
   },
   "keywords": [
@@ -18,6 +19,16 @@
   ],
   "author": "SPAR Sri Lanka",
   "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   }
