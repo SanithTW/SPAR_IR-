@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { X, PlusCircle, Paperclip, Check, Store } from 'lucide-react';
-import { issuesApi, branchesApi, typesAndSizesApi } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, PlusCircle, Paperclip, Check, Store, FileText, Image as ImageIcon, UploadCloud, Trash2, Loader2 } from 'lucide-react';
+import { issuesApi, branchesApi, typesAndSizesApi, uploadApi } from '../services/api';
 
 export default function IssueItemModal({ onClose, onSuccess }) {
   const [branches, setBranches] = useState([]);
@@ -13,6 +13,13 @@ export default function IssueItemModal({ onClose, onSuccess }) {
   const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [hoardingSizeId, setHoardingSizeId] = useState('');
+
+  // Attachment State (JPG, PNG, PDF)
+  const fileInputRef = useRef(null);
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const [targetMode, setTargetMode] = useState('all'); // 'all' or 'specific'
   const [selectedBranchIds, setSelectedBranchIds] = useState([]);
@@ -56,6 +63,56 @@ export default function IssueItemModal({ onClose, onSuccess }) {
     setSelectedBranchIds([]);
   };
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const isImage = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) || file.type.startsWith('image/');
+    const isPdf = ext === 'pdf' || file.type === 'application/pdf';
+
+    if (!isImage && !isPdf) {
+      setError('Please attach a JPG, PNG, or PDF file.');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      setError('File size must be less than 15MB.');
+      return;
+    }
+
+    setError('');
+    setAttachmentFile(file);
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setAttachmentPreview(ev.target.result);
+      reader.readAsDataURL(file);
+    } else {
+      setAttachmentPreview(null);
+    }
+
+    try {
+      setUploadingFile(true);
+      const res = await uploadApi.uploadFile(file);
+      setAttachmentUrl(res.url);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to upload file: ' + (err.message || 'Upload error'));
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleRemoveAttachment = () => {
+    setAttachmentFile(null);
+    setAttachmentPreview(null);
+    setAttachmentUrl('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -70,15 +127,22 @@ export default function IssueItemModal({ onClose, onSuccess }) {
       return;
     }
 
+    if (uploadingFile) {
+      setError('Please wait for the attachment to finish uploading.');
+      return;
+    }
+
     try {
       setLoading(true);
 
       const payload = {
         item_type_id: parseInt(itemTypeId, 10),
+        slot_id: isHoarding && hoardingSizeId ? parseInt(hoardingSizeId, 10) : undefined,
         campaign: campaign.trim(),
         qty: parseInt(qty, 10) || 1,
         issue_date: issueDate,
         note: note.trim(),
+        attachment_url: attachmentUrl || undefined,
         all_branches: targetMode === 'all',
         branch_ids: targetMode === 'specific' ? selectedBranchIds : undefined
       };
@@ -322,6 +386,124 @@ export default function IssueItemModal({ onClose, onSuccess }) {
                     </label>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Attachment Upload (JPG, PNG, PDF) */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Paperclip size={15} color="#d51e27" />
+                Artwork / Document Attachment (JPG, PNG, PDF)
+              </span>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 500 }}>
+                Supports JPG, PNG, PDF (up to 15MB)
+              </span>
+            </label>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".jpg,.jpeg,.png,.pdf,application/pdf,image/jpeg,image/png"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+
+            {!attachmentFile ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: '2px dashed #cbd5e1',
+                  borderRadius: '10px',
+                  padding: '1.25rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.35rem',
+                  background: '#f8fafc',
+                  cursor: 'pointer',
+                  transition: 'border-color 0.2s'
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.borderColor = '#d51e27')}
+                onMouseOut={(e) => (e.currentTarget.style.borderColor = '#cbd5e1')}
+              >
+                <div style={{ background: '#fee2e2', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <UploadCloud size={19} color="#d51e27" />
+                </div>
+                <div style={{ fontSize: '0.825rem', fontWeight: 600, color: '#0f172a' }}>
+                  Click to attach Artwork or Document
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                  Attach artwork design (JPG, PNG) or dispatch/spec note (PDF)
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.65rem 0.85rem',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '10px',
+                  background: '#ffffff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {attachmentPreview ? (
+                    <img
+                      src={attachmentPreview}
+                      alt="Preview"
+                      style={{ width: '46px', height: '46px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                    />
+                  ) : (
+                    <div style={{ width: '46px', height: '46px', borderRadius: '6px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileText size={22} color="#dc2626" />
+                    </div>
+                  )}
+
+                  <div>
+                    <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#0f172a', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {attachmentFile.name}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem' }}>
+                      <span>{(attachmentFile.size / 1024).toFixed(1)} KB</span>
+                      {uploadingFile ? (
+                        <span style={{ color: '#d97706', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Loader2 size={12} className="spin" /> Uploading...
+                        </span>
+                      ) : attachmentUrl ? (
+                        <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: 600 }}>
+                          <Check size={12} /> Ready to send
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleRemoveAttachment}
+                  title="Remove attachment"
+                  style={{
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    color: '#dc2626',
+                    padding: '0.35rem 0.65rem',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.3rem',
+                    cursor: 'pointer',
+                    fontWeight: 600
+                  }}
+                >
+                  <Trash2 size={13} /> Remove
+                </button>
               </div>
             )}
           </div>

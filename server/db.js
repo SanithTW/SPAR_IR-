@@ -62,6 +62,8 @@ function initSchema() {
       name TEXT NOT NULL,
       username TEXT NOT NULL UNIQUE,
       email TEXT,
+      phone TEXT,
+      address TEXT,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('admin', 'user', 'branch')),
       branch_id INTEGER,
@@ -115,7 +117,25 @@ function initSchema() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (issue_id) REFERENCES issues(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS private_labels (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      category TEXT DEFAULT 'General',
+      description TEXT,
+      file_url TEXT NOT NULL,
+      file_name TEXT,
+      file_type TEXT,
+      file_size INTEGER,
+      created_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
   `);
+
+  try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch (e) {}
+  try { db.exec('ALTER TABLE users ADD COLUMN address TEXT'); } catch (e) {}
 }
 
 function seedData() {
@@ -145,154 +165,77 @@ function seedData() {
   insertSize.run(20, 10, 'ft', 'Horizontal', 1);
   insertSize.run(18, 8, 'ft', 'Horizontal', 1);
 
-  // 22 Branches from SAVEMOR sheet
+  // 28 Official IR Branches from Master Sheet
   const branchesData = [
-    { name: 'Chandra Super', town: 'Palmadulla', address: 'Main Street, Palmadulla', contact: 'Nimal Perera', phone: '077 123 4567' },
-    { name: 'SaveMor City', town: 'Colombo', address: 'Union Place, Colombo 02', contact: 'Kasun Fernando', phone: '077 234 5678' },
-    { name: 'Galle Branch', town: 'Galle', address: 'Wakwella Road, Galle', contact: 'Saman Kumara', phone: '077 345 6789' },
-    { name: 'Kandy Branch', town: 'Kandy', address: 'Peradeniya Road, Kandy', contact: 'Ruwan Silva', phone: '077 456 7890' },
-    { name: 'Matara Branch', town: 'Matara', address: 'Anagarika Dharmapala Mw, Matara', contact: 'Isuru Perera', phone: '077 567 8901' },
-    { name: 'Kurunegala Branch', town: 'Kurunegala', address: 'Colombo Road, Kurunegala', contact: 'Dinesh Jayasuriya', phone: '077 678 9012' },
-    { name: 'Negombo Branch', town: 'Negombo', address: 'Greens Road, Negombo', contact: 'Chamara De Silva', phone: '077 789 0123' },
-    { name: 'Gampaha Super', town: 'Gampaha', address: 'Yakkala Road, Gampaha', contact: 'Pradeep Alwis', phone: '077 890 1234' },
-    { name: 'Kalutara Branch', town: 'Kalutara', address: 'Galle Road, Kalutara North', contact: 'Lalith Mendis', phone: '077 901 2345' },
-    { name: 'Ratnapura SaveMor', town: 'Ratnapura', address: 'Hospital Road, Ratnapura', contact: 'Ajith Bandara', phone: '071 123 4567' },
-    { name: 'Anuradhapura Branch', town: 'Anuradhapura', address: 'Maithripala Senanayake Mw', contact: 'Sunil Herath', phone: '071 234 5678' },
-    { name: 'Badulla IR', town: 'Badulla', address: 'Lower King Street, Badulla', contact: 'Damith Wickrama', phone: '071 345 6789' },
-    { name: 'Kegalle Store', town: 'Kegalle', address: 'Kandy Road, Kegalle', contact: 'Janaka Senanayake', phone: '071 456 7890' },
-    { name: 'Panadura Branch', town: 'Panadura', address: 'Arthur V Dias Mw, Panadura', contact: 'Rohan Fonseka', phone: '071 567 8901' },
-    { name: 'Wattala Super', town: 'Wattala', address: 'Negombo Road, Wattala', contact: 'Ashan Rodrigo', phone: '071 678 9012' },
-    { name: 'Moratuwa SaveMor', town: 'Moratuwa', address: 'Old Galle Road, Moratuwa', contact: 'Priyantha Cooray', phone: '071 789 0123' },
-    { name: 'Battaramulla Store', town: 'Battaramulla', address: 'Main Street, Battaramulla', contact: 'Malik Gunaratne', phone: '071 890 1234' },
-    { name: 'Maharagama IR', town: 'Maharagama', address: 'High Level Road, Maharagama', contact: 'Kavinda Abeysekara', phone: '071 901 2345' },
-    { name: 'Kiribathgoda (Branch A)', town: 'Kiribathgoda', address: 'Kandy Road No 19/A, Kiribathgoda', contact: 'Nuwan Gamage', phone: '072 123 4567' },
-    { name: 'Kiribathgoda (Branch B)', town: 'Kiribathgoda', address: 'Kandy Road No 19/B, Kiribathgoda', contact: 'Suranga Wijesinghe', phone: '072 234 5678' },
-    { name: 'Nugegoda Super', town: 'Nugegoda', address: 'Stanley Thilakarathne Mw', contact: 'Tharindu Rathnayake', phone: '072 345 6789' },
-    { name: 'Bandarawela IR', town: 'Bandarawela', address: 'Badulla Road, Bandarawela', contact: 'Chathura Ranasinghe', phone: '072 456 7890' }
+    { no: 1, name: "NIRMAL SUPER", contact: "MR. NRMAL", email: "nirmalfamilysuper@gmail.com", address: "NO. 3 A, MAIN STREET, PALLEWELA", phone: "077 - 2445813", town: "Pallewela", username: "nirmalsuper" },
+    { no: 2, name: "DK SUPER", contact: "MS. ANUSHI", email: "martdksuper@gmail.com", address: "A.A.N. SAMARASINGHE, 24/B/1, POLGASOWITA ROAD, MATTEGODA.", phone: "071 - 1683694", town: "Mattegoda", username: "dksuper" },
+    { no: 3, name: "ANANDA SUPER", contact: "MS. NILMINI", email: "newanandatc@gmail.com", address: "NEW ANANDA TRADERS (PVT) LTD, NO 272, ANGURUWATOTA RD, WEWALA, HORANA", phone: "077 - 1594156", town: "Horana", username: "anandasuper" },
+    { no: 4, name: "D AND J SUPER", contact: "MR. NILANKA", email: "orders@savemordj.com", address: "NO 01, CHAPPEL LANE, NUGEGODA.", phone: "077 - 7061691", town: "Nugegoda", username: "dandjsuper" },
+    { no: 5, name: "PAHAN SUPER", contact: "MR. NALIN", email: "nalinrathnayaka524@gmail.com", address: "NO. 343 / A, KORALAIMA, GONAPOLA JUNCTION, GONAPOLA", phone: "077 - 5019420", town: "Gonapola", username: "pahansuper" },
+    { no: 6, name: "D & S SUPER", contact: "MR. KRISHANTHA", email: "rangajeewanethu@gmail.com", address: "NO. 245 / A / 5, HENGODA, BANDARAGAMA", phone: "077 - 7350758", town: "Bandaragama", username: "dandssuper" },
+    { no: 7, name: "WICKRAMA SUPER", contact: "MR. CHULA / ASITHA", email: "wickramaoffice@gmail.com", address: "NO. 386, KANDY ROAD, NITTABUWA", phone: "077 7271008", town: "Nittabuwa", username: "wickramasuper" },
+    { no: 8, name: "RUPIKA SUPER", contact: "MR. DUMINDA", email: "rupikasuper.urapola@gmail.com", address: "295/B/5, HANWELLA ROAD, URAPOLA.", phone: "076 - 7276888", town: "Urapola", username: "rupikasuper" },
+    { no: 9, name: "NIMAL SUPER / HYPERMART", contact: "MR. KASUN", email: "kasunspathirana@gmail.com", address: "NEW TOWN ROAD, EMBILIPITIYA.", phone: "077 - 7770061", town: "Embilipitiya", username: "nimalsuper" },
+    { no: 10, name: "SHAKUNI SUPER", contact: "MR. SIRIPALA", email: "sakunimills@gmail.com", address: "KAHAWATHTHALA - ELA, POLGAHAWELA.", phone: "071 - 7631066", town: "Polgahawela", username: "shakunisuper" },
+    { no: 11, name: "SSA SUPER", contact: "MR. ANIL", email: "anilpriyantha2004@gmail.com", address: "No. 10/01, HANDAPANGODA ROAD, PORUWADANDA JUNCTION, PORUWADANDA.", phone: "077 - 1865545", town: "Poruwadanda", username: "ssasuper" },
+    { no: 12, name: "MAHARAJA - WELLAWATTA", contact: "MR. RISHI", email: "rishi@gtve.com", address: "NO. 46, HAMPTON LANE, COLOMBO 06.", phone: "076 - 6908987", town: "Wellawatta", username: "maharajawellawatta" },
+    { no: 13, name: "KUMARA SUPER", contact: "MR. KUMARA", email: "kumarasuper403@gmail.com", address: "NO. 255, AGALAWATTA ROAD, MATHUGAMA.", phone: "078 3362485", town: "Mathugama", username: "kumarasuper" },
+    { no: 14, name: "RAHEEM SUPER ( CONTRACT )", contact: "MR. SHAMI", email: "mohammedyesar70@gmail.com", address: "NO 201, GALBOKKA ROAD, WELIGAMA.", phone: "077 - 0776813", town: "Weligama", username: "raheemsuper" },
+    { no: 15, name: "GAMAGE SUPER", contact: "MR. SUPUN", email: "madushanbgs@gmail.com", address: "AKURASSA ROAD, YAKKALAMULLA.", phone: "070 - 3744170", town: "Yakkalamulla", username: "gamagesuper" },
+    { no: 16, name: "KUMARAGE SUPER ( CONTRACT )", contact: "MS. NADEESHA", email: "kumarage12@gmail.com", address: "BADDEGAMA ROAD, WANDURABA.", phone: "076 - 1487314", town: "Wanduraba", username: "kumaragesuper" },
+    { no: 17, name: "MAHARAJA - KOTAHENA", contact: "MR. RISHI", email: "rishi@gtve.com", address: "NO.133, JAMPETTAH STREET, KOTAHENA, COLOMBO 13.", phone: "076 - 6908987", town: "Kotahena", username: "maharajakotahena" },
+    { no: 18, name: "RANASINGHE SUPER", contact: "MR. IMALKA", email: "imachathu@gmail.com", address: "RANASINGHE SUPER, THANAMALWILA ROAD, WALAWA JUNCTION, UDAWALAWE.", phone: "077 1538747", town: "Udawalawe", username: "ranasinghesuper" },
+    { no: 19, name: "CHANDRA SUPER - GODAKAWELA", contact: "MR. NALAKA", email: "nalaka1967@gmail.com", address: "NO.108, MAIN STREET, GODAKAWELA.", phone: "077 - 3536047", town: "Godakawela", username: "chandragodakawela" },
+    { no: 20, name: "CHANDRA SUPER - GANEGAMA", contact: "MR. NALAKA", email: "nalaka1967@gmail.com", address: "NO. 438, GANEGAMA, PALMADULLA.", phone: "078 - 3536047", town: "Ganegama", username: "chandraganegama" },
+    { no: 21, name: "GAMAGE SUPER - UDUGAMA", contact: "MR. IRUSHA", email: "irushagangabadage@gmail.com", address: "GAMAGE FOOD CITY, BAR JUNCTION, UDUGAMA, GALLE", phone: "077 - 3249166", town: "Udugama", username: "gamageudugama" },
+    { no: 22, name: "NEBULA SUPER - ALUTHGAMA", contact: "MR. NISHAN", email: "nebulasupermarkets@gmail.com", address: "NEBULA SUPER MARKET, NO 88, WALIPANNA ROAD, ALUTHGAM.", phone: "077 - 7899710", town: "Aluthgama", username: "nebulasuper" },
+    { no: 23, name: "PTI SUPER - KESBAWA", contact: "MR. CHANAKA", email: "omegatex90@gmail.com", address: "NO. 67/10, BANDARAGAMA ROAD, MAKANDANA, KESBAWA", phone: "077 - 3055327", town: "Kesbawa", username: "ptisuper" },
+    { no: 24, name: "DAYARATHNA SUPER - POLGASOVITA", contact: "MR. PRADEEP", email: "newdayarathnastprima@gmail.com", address: "NO. 72, HALPITA, POLGASOVITA.", phone: "076 - 8518488", town: "Polgasovita", username: "dayarathnasuper" },
+    { no: 25, name: "CHETHANA SUPER - ELPITYA", contact: "MR. VISHNA", email: "wish.senevirathne2@gmail.com", address: "CHETHANAKETAPOLA, GANEGODA, ELPITIYA.", phone: "077 - 8317278", town: "Elpitiya", username: "chethanasuper" },
+    { no: 26, name: "GAMAGE SUPER - NAGODA", contact: "MS. SHANI", email: "madushanisasara@gmail.com", address: "NAGODA", phone: "074 - 2765025", town: "Nagoda", username: "gamagenagoda" },
+    { no: 27, name: "CHANDRA SUPER - PELMADULLA", contact: "MR. NALAKA", email: "nalaka1967@gmail.com", address: "NO. 40, RAKWANA ROAD, PELMADULLA.", phone: "078 - 3536047", town: "Pelmadulla", username: "chandrapelmadulla" },
+    { no: 28, name: "CHANDRA SUPER - PILIYANDALA", contact: "MR. NALAKA", email: "nalaka1967@gmail.com", address: "89 A, MADAPATH ROAD, KALAMUNNA, PILIYANDALA.", phone: "078 - 3536047", town: "Piliyandala", username: "chandrapiliyandala" }
   ];
 
   const insertBranch = db.prepare(`
-    INSERT INTO branches (name, town, address, contact, phone, active)
-    VALUES (?, ?, ?, ?, ?, 1)
-  `);
-
-  const insertSlot = db.prepare(`
-    INSERT INTO hoarding_slots (branch_id, width, height, unit, orientation, sides, qty, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO branches (id, name, town, address, contact, phone, active)
+    VALUES (?, ?, ?, ?, ?, ?, 1)
   `);
 
   const branchIds = {};
-  branchesData.forEach((b, index) => {
-    const info = insertBranch.run(b.name, b.town, b.address, b.contact, b.phone);
-    const branchId = info.lastInsertRowid;
-    branchIds[b.name] = branchId;
-
-    // Attach hoarding slots as documented in proposal
-    if (b.name === 'Chandra Super') {
-      // 12' x 8' horizontal hoarding plus 2 nos of 8' x 4' vertical
-      insertSlot.run(branchId, 12, 8, 'ft', 'Horizontal', 1, 1, 'Front entrance main hoarding');
-      insertSlot.run(branchId, 8, 4, 'ft', 'Vertical', 1, 2, 'Roadside vertical pillars (2 nos)');
-    } else if (index % 3 === 0) {
-      insertSlot.run(branchId, 20, 10, 'ft', 'Horizontal', 1, 1, 'Roof-top main billboard');
-      insertSlot.run(branchId, 10, 5, 'ft', 'Horizontal', 2, 1, 'Double-sided parking entrance display');
-    } else if (index % 2 === 0) {
-      insertSlot.run(branchId, 18, 8, 'ft', 'Horizontal', 1, 1, 'Facade banner slot');
-    } else {
-      insertSlot.run(branchId, 8, 4, 'ft', 'Vertical', 1, 1, 'Side gate signpost');
-    }
+  branchesData.forEach((b) => {
+    insertBranch.run(b.no, b.name, b.town, b.address, b.contact, b.phone);
+    branchIds[b.name] = b.no;
   });
 
   // Users
   const passwordHash = bcrypt.hashSync('spar123', 8);
 
   const insertUser = db.prepare(`
-    INSERT INTO users (name, username, email, password_hash, role, branch_id, active)
-    VALUES (?, ?, ?, ?, ?, ?, 1)
+    INSERT INTO users (name, username, email, phone, address, password_hash, role, branch_id, active)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
   `);
 
   // Admin
-  const adminId = insertUser.run('Sanith Perera', 'admin', 'sanith@spar.lk', passwordHash, 'admin', null).lastInsertRowid;
+  const adminId = insertUser.run('Sanith Perera', 'admin', 'sanith@spar.lk', null, null, passwordHash, 'admin', null).lastInsertRowid;
   // Marketing User
-  insertUser.run('Nimal Perera (Marketing)', 'user', 'nimal@spar.lk', passwordHash, 'user', null);
+  insertUser.run('Nimal Perera (Marketing)', 'user', 'nimal@spar.lk', null, null, passwordHash, 'user', null);
 
-  // Branch Users for all 22 branches
+  // Branch Users for all 28 IR branches
   branchesData.forEach((b) => {
-    const username = b.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const bId = branchIds[b.name];
-    insertUser.run(`${b.name} Rep`, username, `${username}@savemor.lk`, passwordHash, 'branch', bId);
+    const phonePassword = b.phone.replace(/[^0-9]/g, '');
+    const phonePasswordHash = bcrypt.hashSync(phonePassword, 8);
+    insertUser.run(
+      `${b.name} - ${b.contact}`,
+      b.username,
+      b.email,
+      b.phone,
+      b.address,
+      phonePasswordHash,
+      'branch',
+      b.no
+    );
   });
-
-  // Issues and History (Seeding realistic campaign items across October 2026)
-  const insertIssue = db.prepare(`
-    INSERT INTO issues (branch_id, item_type_id, slot_id, campaign, qty, issue_date, status, note, created_by, received_at, problem_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertUpdate = db.prepare(`
-    INSERT INTO issue_updates (issue_id, status, comment, photo, updated_by, updated_by_name, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  const insertNotif = db.prepare(`
-    INSERT INTO notifications (target_role, user_id, branch_id, title, message, issue_id, is_read, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  // Item Types: 1=Tabloid, 2=Poster, 3=Hoarding, 4=Banner, 5=Wobbler
-  // 1. Chandra Super - Tabloid (Received)
-  const iss1 = insertIssue.run(branchIds['Chandra Super'], 1, null, 'Monthly Tabloid 500 pcs', 500, '2026-10-01', 'Received', 'October monthly promotional tabloid pack', adminId, '2026-10-02 14:30:00', null).lastInsertRowid;
-  insertUpdate.run(iss1, 'Issued', 'Dispatched via Courier #SP-9921', null, adminId, 'Sanith Perera', '2026-10-01 09:00:00');
-  insertUpdate.run(iss1, 'Received', 'All 500 pcs received in good condition at cashier desk.', null, null, 'Chandra Super Rep', '2026-10-02 14:30:00');
-
-  // 2. Chandra Super - Hoarding (Problem)
-  const iss2 = insertIssue.run(branchIds['Chandra Super'], 3, 1, 'Autumn Promo Hoarding', 1, '2026-10-05', 'Problem', '12x8 ft hoarding print for Autumn campaign', adminId, null, '2026-10-07 11:15:00').lastInsertRowid;
-  insertUpdate.run(iss2, 'Issued', 'Delivered by printing vendor direct to store', null, adminId, 'Sanith Perera', '2026-10-05 10:00:00');
-  insertUpdate.run(iss2, 'Problem', 'Damaged vinyl in transit - cut mark on the bottom right corner.', null, null, 'Chandra Super Rep', '2026-10-07 11:15:00');
-
-  // 3. Chandra Super - Poster (Pending)
-  insertIssue.run(branchIds['Chandra Super'], 2, null, 'Festival Poster Campaign', 10, '2026-10-14', 'Pending', 'A3 Festival posters - scheduled for delivery', adminId, null, null);
-
-  // 4. Chandra Super - Poster (Issued)
-  const iss4 = insertIssue.run(branchIds['Chandra Super'], 2, null, 'October Campaign Posters', 4, '2026-10-26', 'Issued', 'Seasonal offer store display posters', adminId, null, null).lastInsertRowid;
-  insertUpdate.run(iss4, 'Issued', 'Dispatched with logistics team morning dispatch', null, adminId, 'Sanith Perera', '2026-10-26 08:30:00');
-
-  // 5. SaveMor City - Hoarding (Problem)
-  const iss5 = insertIssue.run(branchIds['SaveMor City'], 3, null, 'Mega Sale Hoarding', 1, '2026-10-08', 'Problem', 'Main front road hoarding print', adminId, null, '2026-10-10 16:00:00').lastInsertRowid;
-  insertUpdate.run(iss5, 'Issued', 'Dispatched with installation team', null, adminId, 'Sanith Perera', '2026-10-08 09:00:00');
-  insertUpdate.run(iss5, 'Problem', 'Wrong size delivered - received 16x8 instead of 20x10 ft.', null, null, 'SaveMor City Rep', '2026-10-10 16:00:00');
-
-  // 6. Overdue Item: Issued in previous month (e.g. 2026-09-24) to Galle Branch, still Issued (not confirmed by 2nd of Oct -> Red/Overdue!)
-  const iss6 = insertIssue.run(branchIds['Galle Branch'], 2, null, 'Bakery Month Posters', 6, '2026-09-24', 'Issued', 'Bakery special promotional boards', adminId, null, null).lastInsertRowid;
-  insertUpdate.run(iss6, 'Issued', 'Sent via postal dispatch parcel', null, adminId, 'Sanith Perera', '2026-09-24 11:00:00');
-
-  // 7. Seed items for several other branches across October to populate the calendar nicely!
-  const calendarSeeds = [
-    { branch: 'Kandy Branch', type: 1, camp: 'Monthly Tabloid 500 pcs', qty: 500, date: '2026-10-01', status: 'Received' },
-    { branch: 'Matara Branch', type: 2, camp: 'Fresh Harvest Posters', qty: 8, date: '2026-10-03', status: 'Received' },
-    { branch: 'Kurunegala Branch', type: 4, camp: 'Weekend Special Banner', qty: 2, date: '2026-10-09', status: 'Issued' },
-    { branch: 'Negombo Branch', type: 1, camp: 'Monthly Tabloid 500 pcs', qty: 500, date: '2026-10-11', status: 'Received' },
-    { branch: 'Gampaha Super', type: 2, camp: 'Dairy Promo Posters', qty: 6, date: '2026-10-14', status: 'Issued' },
-    { branch: 'Kalutara Branch', type: 3, camp: 'Storefront Hoarding', qty: 1, date: '2026-10-16', status: 'Received' },
-    { branch: 'Ratnapura SaveMor', type: 5, camp: 'Household Wobblers', qty: 50, date: '2026-10-18', status: 'Pending' },
-    { branch: 'Wattala Super', type: 1, camp: 'Mid-Month Savings Tabloid', qty: 400, date: '2026-10-21', status: 'Received' },
-    { branch: 'Panadura Branch', type: 4, camp: 'Sparks Rewards Banner', qty: 2, date: '2026-10-23', status: 'Issued' },
-    { branch: 'Nugegoda Super', type: 2, camp: 'Organic Produce Posters', qty: 12, date: '2026-10-26', status: 'Received' },
-    { branch: 'Kiribathgoda (Branch A)', type: 1, camp: 'Halloween Festival Tabloid', qty: 450, date: '2026-10-28', status: 'Pending' },
-    { branch: 'Kiribathgoda (Branch B)', type: 1, camp: 'Halloween Festival Tabloid', qty: 450, date: '2026-10-28', status: 'Pending' }
-  ];
-
-  calendarSeeds.forEach(item => {
-    const bId = branchIds[item.branch] || 1;
-    const recAt = item.status === 'Received' ? `${item.date} 15:00:00` : null;
-    const newId = insertIssue.run(bId, item.type, null, item.camp, item.qty, item.date, item.status, `Official POSM release for ${item.camp}`, adminId, recAt, null).lastInsertRowid;
-    insertUpdate.run(newId, item.status, `Status marked as ${item.status}`, null, adminId, 'Sanith Perera', `${item.date} 09:00:00`);
-  });
-
-  // Seed Notifications
-  insertNotif.run('admin', null, null, 'New Item Issued', 'Tabloid - 22 branches issued for October Campaign', iss4, 0, '2026-10-26 09:30:00');
-  insertNotif.run('admin', null, null, 'Problem reported', 'SaveMor City reported Problem: Hoarding - Wrong size delivered', iss5, 0, '2026-10-10 16:05:00');
-  insertNotif.run('admin', null, null, 'Overdue Items Flagged', '6 items from September not confirmed by 2nd Oct', iss6, 0, '2026-10-02 08:00:00');
-  insertNotif.run('branch', null, branchIds['Chandra Super'], 'New POSM Issued', 'October Campaign Posters (4 pcs) dispatched to your branch.', iss4, 0, '2026-10-26 09:35:00');
 
   console.log('Seeding completed successfully!');
 }

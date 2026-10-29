@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     name TEXT NOT NULL,
     username TEXT NOT NULL UNIQUE,
     email TEXT,
+    phone TEXT,
+    address TEXT,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('admin', 'user', 'branch')),
     branch_id INTEGER REFERENCES public.branches(id) ON DELETE SET NULL,
@@ -263,3 +265,28 @@ VALUES
     ('admin', NULL, NULL, 'Problem reported', 'SaveMor City reported Problem: Hoarding - Wrong size delivered', 5, 0, '2026-10-10 16:05:00+00'),
     ('admin', NULL, NULL, 'Overdue Items Flagged', '6 items from September not confirmed by 2nd Oct', 6, 0, '2026-10-02 08:00:00+00'),
     ('branch', NULL, 1, 'New POSM Issued', 'October Campaign Posters (4 pcs) dispatched to your branch.', 4, 0, '2026-10-26 09:35:00+00');
+
+-- -------------------------------------------------------------
+-- 8. TABLE: private_labels
+-- -------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.private_labels (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    category VARCHAR(100) DEFAULT 'General',
+    description TEXT,
+    file_url TEXT NOT NULL,
+    file_name VARCHAR(255),
+    file_type VARCHAR(100),
+    file_size BIGINT,
+    created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_private_labels_category ON public.private_labels(category);
+CREATE INDEX IF NOT EXISTS idx_private_labels_created_at ON public.private_labels(created_at DESC);
+
+ALTER TABLE public.private_labels ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read access to private labels" ON public.private_labels FOR SELECT USING (true);
+CREATE POLICY "Allow all actions on private labels" ON public.private_labels FOR ALL USING (true);
+

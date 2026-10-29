@@ -185,6 +185,10 @@ export const usersApi = {
     apiRequest(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data)
+    }),
+  delete: (id) =>
+    apiRequest(`/users/${id}`, {
+      method: 'DELETE'
     })
 };
 
@@ -197,3 +201,53 @@ export const settingsApi = {
       body: JSON.stringify(data)
     })
 };
+
+// Upload API
+export const uploadApi = {
+  uploadFile: async (file) => {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: formData
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Upload failed (${response.status})`);
+    }
+    return data; // { url, filename, size, storage }
+  }
+};
+
+// Private Labels API
+export const privateLabelsApi = {
+  getAll: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.category && params.category !== 'All') query.append('category', params.category);
+    if (params.search) query.append('search', params.search);
+    const qs = query.toString();
+    return apiRequest(`/private-labels${qs ? `?${qs}` : ''}`);
+  },
+  getById: (id) => apiRequest(`/private-labels/${id}`),
+  create: (data) =>
+    apiRequest('/private-labels', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  update: (id, data) =>
+    apiRequest(`/private-labels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+  delete: (id) =>
+    apiRequest(`/private-labels/${id}`, {
+      method: 'DELETE'
+    })
+};
+

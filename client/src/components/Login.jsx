@@ -3,8 +3,8 @@ import { Eye, EyeOff } from 'lucide-react';
 import { authApi } from '../services/api';
 
 export default function Login({ onLoginSuccess }) {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('spar123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,12 +22,6 @@ export default function Login({ onLoginSuccess }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const setDemoUser = (user, pass) => {
-    setUsername(user);
-    setPassword(pass);
-    setError('');
   };
 
   return (
@@ -330,92 +324,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             </form>
 
-            {/* Quick Demo Fill Buttons */}
-            <div
-              style={{
-                marginTop: '1.75rem',
-                paddingTop: '1.25rem',
-                borderTop: '1px solid #f1f5f9'
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  color: '#94a3b8',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  marginBottom: '8px'
-                }}
-              >
-                Quick Demo Accounts (1-Click Fill)
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                <button
-                  type="button"
-                  onClick={() => setDemoUser('admin', 'spar123')}
-                  style={{
-                    padding: '6px 8px',
-                    background: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    borderRadius: '6px',
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#b91c1c' }}>Admin (Marketing)</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>user: admin</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDemoUser('chandrasuper', 'spar123')}
-                  style={{
-                    padding: '6px 8px',
-                    background: '#ecfdf5',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '6px',
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#047857' }}>Chandra Super</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>IR Branch User</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDemoUser('savemorcity', 'spar123')}
-                  style={{
-                    padding: '6px 8px',
-                    background: '#ecfdf5',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '6px',
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#047857' }}>SaveMor City</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>IR Branch User</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDemoUser('user', 'spar123')}
-                  style={{
-                    padding: '6px 8px',
-                    background: '#eff6ff',
-                    border: '1px solid #bfdbfe',
-                    borderRadius: '6px',
-                    textAlign: 'left',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <div style={{ fontWeight: 700, fontSize: '11.5px', color: '#1d4ed8' }}>Marketing / Mgmt</div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>user: user</div>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>

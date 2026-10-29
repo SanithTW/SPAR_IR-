@@ -9,7 +9,8 @@ import {
   Users,
   Settings,
   PackageCheck,
-  Store
+  Store,
+  Tag
 } from 'lucide-react';
 
 export default function Sidebar({ user, activeTab, setActiveTab }) {
@@ -23,7 +24,8 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
     navItems.push(
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'my-calendar', label: 'My Calendar', icon: Calendar },
-      { id: 'my-items', label: 'My Items', icon: PackageCheck }
+      { id: 'my-items', label: 'My Items', icon: PackageCheck },
+      { id: 'private-labels', label: 'Private Label', icon: Tag }
     );
   } else {
     // Admin or Marketing User
@@ -37,6 +39,7 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
     }
 
     navItems.push({ id: 'branches', label: 'Branches', icon: Building2 });
+    navItems.push({ id: 'private-labels', label: 'Private Label', icon: Tag });
 
     if (isAdmin) {
       navItems.push({ id: 'sizes-types', label: 'Sizes & Types', icon: Layers });

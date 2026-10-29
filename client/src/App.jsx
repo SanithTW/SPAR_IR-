@@ -9,6 +9,7 @@ import BranchesManagement from './components/BranchesManagement';
 import SizesTypesManagement from './components/SizesTypesManagement';
 import ReportsView from './components/ReportsView';
 import UsersSettingsView from './components/UsersSettingsView';
+import PrivateLabelView from './components/PrivateLabelView';
 import IssueItemModal from './components/IssueItemModal';
 import ItemDetailModal from './components/ItemDetailModal';
 
@@ -131,6 +132,14 @@ export default function App() {
           {activeTab === 'branches' && (
             <BranchesManagement
               key={`branches-${refreshTrigger}`}
+              user={user}
+              searchQuery={searchQuery}
+            />
+          )}
+
+          {activeTab === 'private-labels' && (
+            <PrivateLabelView
+              key={`private-labels-${refreshTrigger}`}
               user={user}
               searchQuery={searchQuery}
             />

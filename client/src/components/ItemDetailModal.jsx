@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, MapPin, Store, Clock, CheckCircle2, AlertTriangle, User, Paperclip, Send } from 'lucide-react';
+import { X, Calendar, MapPin, Store, Clock, CheckCircle2, AlertTriangle, User, Paperclip, Send, FileText, Image as ImageIcon, ExternalLink } from 'lucide-react';
 import { issuesApi } from '../services/api';
 import confetti from 'canvas-confetti';
 
@@ -220,38 +220,132 @@ export default function ItemDetailModal({ issueId, user, onClose, onRefresh }) {
               </div>
             )}
 
-            {/* Attachment if present */}
-            {issue.attachment_url && (
-              <div
-                style={{
-                  padding: '0.75rem 1rem',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  background: '#ffffff'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
-                  <Paperclip size={16} color="#d51e27" />
-                  <span>Artwork / Dispatch Note Attachment</span>
-                </div>
-                <a
-                  href={issue.attachment_url}
-                  target="_blank"
-                  rel="noreferrer"
+            {/* Attachment if present (JPG, PNG, PDF) */}
+            {issue.attachment_url && (() => {
+              const url = issue.attachment_url;
+              const isImage = /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(url) || url.startsWith('data:image/');
+              const isPdf = /\.pdf(\?|$)/i.test(url);
+
+              if (isImage) {
+                return (
+                  <div style={{ border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', background: '#f8fafc' }}>
+                    <div style={{ padding: '0.65rem 0.85rem', background: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8rem', fontWeight: 700, color: '#0f172a' }}>
+                        <ImageIcon size={15} color="#d51e27" />
+                        <span>Attached Artwork / Mockup</span>
+                      </div>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: '0.75rem', color: '#d51e27', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}
+                      >
+                        <span>Full Size</span> <ExternalLink size={12} />
+                      </a>
+                    </div>
+                    <div style={{ padding: '0.85rem', display: 'flex', justifyContent: 'center', background: '#f8fafc' }}>
+                      <a href={url} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
+                        <img
+                          src={url}
+                          alt="Campaign Artwork"
+                          style={{
+                            maxWidth: '100%',
+                            maxHeight: '260px',
+                            objectFit: 'contain',
+                            borderRadius: '8px',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                            cursor: 'zoom-in'
+                          }}
+                        />
+                      </a>
+                    </div>
+                  </div>
+                );
+              }
+
+              if (isPdf) {
+                return (
+                  <div
+                    style={{
+                      padding: '0.85rem 1rem',
+                      border: '1px solid #fecaca',
+                      background: '#fef2f2',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={22} color="#dc2626" />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#991b1b' }}>
+                          Attached PDF Document
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          Artwork specification or dispatch document
+                        </div>
+                      </div>
+                    </div>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        padding: '0.45rem 0.85rem',
+                        background: '#dc2626',
+                        color: '#ffffff',
+                        borderRadius: '6px',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        boxShadow: '0 2px 4px rgba(220, 38, 38, 0.25)'
+                      }}
+                    >
+                      <ExternalLink size={13} /> Open PDF
+                    </a>
+                  </div>
+                );
+              }
+
+              return (
+                <div
                   style={{
-                    color: '#d51e27',
-                    fontWeight: 600,
-                    fontSize: '0.8rem',
-                    textDecoration: 'underline'
+                    padding: '0.75rem 1rem',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#ffffff'
                   }}
                 >
-                  View File
-                </a>
-              </div>
-            )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <Paperclip size={16} color="#d51e27" />
+                    <span>Attached Document / Artwork</span>
+                  </div>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      color: '#d51e27',
+                      fontWeight: 600,
+                      fontSize: '0.8rem',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    View File
+                  </a>
+                </div>
+              );
+            })()}
 
             {/* Branch Actions (Receive / Problem) */}
             {(canBranchAct || isAdmin) && (
