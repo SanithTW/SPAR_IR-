@@ -20,6 +20,7 @@ export default function IssueItemModal({ onClose, onSuccess }) {
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [attachmentUrl, setAttachmentUrl] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const [targetMode, setTargetMode] = useState('all'); // 'all' or 'specific'
   const [selectedBranchIds, setSelectedBranchIds] = useState([]);
@@ -49,7 +50,7 @@ export default function IssueItemModal({ onClose, onSuccess }) {
 
   const toggleBranch = (id) => {
     if (selectedBranchIds.includes(id)) {
-      setSelectedBranchIds(selectedBranchIds.filter(bId => bId !== id));
+      setSelectedBranchIds(selectedBranchIds.filter((bId) => bId !== id));
     } else {
       setSelectedBranchIds([...selectedBranchIds, id]);
     }
@@ -63,8 +64,7 @@ export default function IssueItemModal({ onClose, onSuccess }) {
     setSelectedBranchIds([]);
   };
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
+  const processFile = async (file) => {
     if (!file) return;
 
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -102,6 +102,37 @@ export default function IssueItemModal({ onClose, onSuccess }) {
     } finally {
       setUploadingFile(false);
     }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    await processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    await processFile(file);
   };
 
   const handleRemoveAttachment = () => {
@@ -413,8 +444,12 @@ export default function IssueItemModal({ onClose, onSuccess }) {
             {!attachmentFile ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
                 style={{
-                  border: '2px dashed #cbd5e1',
+                  border: isDragging ? '2px dashed #d51e27' : '2px dashed #cbd5e1',
                   borderRadius: '10px',
                   padding: '1.25rem',
                   display: 'flex',
@@ -422,21 +457,23 @@ export default function IssueItemModal({ onClose, onSuccess }) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '0.35rem',
-                  background: '#f8fafc',
+                  background: isDragging ? '#fff1f2' : '#f8fafc',
                   cursor: 'pointer',
-                  transition: 'border-color 0.2s'
+                  transition: 'all 0.18s ease-in-out',
+                  transform: isDragging ? 'scale(1.01)' : 'scale(1)',
+                  boxShadow: isDragging ? '0 0 0 4px rgba(213, 30, 39, 0.12)' : 'none'
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.borderColor = '#d51e27')}
-                onMouseOut={(e) => (e.currentTarget.style.borderColor = '#cbd5e1')}
+                onMouseOver={(e) => { if (!isDragging) e.currentTarget.style.borderColor = '#d51e27'; }}
+                onMouseOut={(e) => { if (!isDragging) e.currentTarget.style.borderColor = '#cbd5e1'; }}
               >
-                <div style={{ background: '#fee2e2', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ background: isDragging ? '#fed7aa' : '#fee2e2', width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <UploadCloud size={19} color="#d51e27" />
                 </div>
-                <div style={{ fontSize: '0.825rem', fontWeight: 600, color: '#0f172a' }}>
-                  Click to attach Artwork or Document
+                <div style={{ fontSize: '0.825rem', fontWeight: 600, color: isDragging ? '#d51e27' : '#0f172a' }}>
+                  {isDragging ? 'Drop your file here!' : 'Drag and drop file here, or click to attach'}
                 </div>
-                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                  Attach artwork design (JPG, PNG) or dispatch/spec note (PDF)
+                <div style={{ fontSize: '0.72rem', color: isDragging ? '#b91c1c' : '#64748b' }}>
+                  {isDragging ? 'Release to upload JPG, PNG, or PDF' : 'Attach artwork design (JPG, PNG) or dispatch/spec note (PDF)'}
                 </div>
               </div>
             ) : (

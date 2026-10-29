@@ -933,9 +933,9 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  const processFile = (file) => {
     if (!file) return;
 
     // Check file type: jpg, png, or pdf
@@ -967,6 +967,37 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
     } else {
       setFilePreview(null); // PDF icon fallback
     }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    processFile(file);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    processFile(file);
   };
 
   const handleSubmit = async (e) => {
@@ -1196,16 +1227,23 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
             </label>
 
             <div
-              style={{
-                border: '2px dashed #cbd5e1',
-                borderRadius: '10px',
-                padding: '1.25rem',
-                textAlign: 'center',
-                background: '#f8fafc',
-                cursor: 'pointer',
-                position: 'relative'
-              }}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
               onClick={() => document.getElementById('private-label-file-input').click()}
+              style={{
+                border: isDragging ? '2px dashed #d51e27' : '2px dashed #cbd5e1',
+                borderRadius: '12px',
+                padding: '1.5rem 1.25rem',
+                textAlign: 'center',
+                background: isDragging ? '#fff1f2' : '#f8fafc',
+                cursor: 'pointer',
+                position: 'relative',
+                transition: 'all 0.18s ease-in-out',
+                transform: isDragging ? 'scale(1.01)' : 'scale(1)',
+                boxShadow: isDragging ? '0 0 0 4px rgba(213, 30, 39, 0.12)' : 'none'
+              }}
             >
               <input
                 id="private-label-file-input"
@@ -1215,7 +1253,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
                 style={{ display: 'none' }}
               />
 
-              {fileName ? (
+              {fileName && !isDragging ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', textAlign: 'left' }}>
                   {isPdf ? (
                     <div
@@ -1268,22 +1306,32 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
                     <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {fileName}
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
                       {isPdf ? 'PDF Document' : 'Image File'} {fileSize ? `• ${(fileSize / (1024 * 1024)).toFixed(2)} MB` : ''}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#007a3d', fontWeight: 600, marginTop: '2px' }}>
-                      Click to choose a different file
+                    <div style={{ fontSize: '0.72rem', color: '#007a3d', fontWeight: 600, marginTop: '3px' }}>
+                      ✓ File selected · Drag & drop to replace or click to choose
                     </div>
+                  </div>
+                </div>
+              ) : isDragging ? (
+                <div style={{ padding: '0.5rem 0' }}>
+                  <UploadCloud size={42} color="#d51e27" style={{ marginBottom: '0.5rem' }} />
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#d51e27' }}>
+                    Drop your file here!
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#b91c1c', marginTop: '0.25rem' }}>
+                    Release to attach JPG, PNG, or PDF
                   </div>
                 </div>
               ) : (
                 <div>
-                  <UploadCloud size={36} color="#94a3b8" style={{ marginBottom: '0.5rem' }} />
-                  <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>
-                    Click to select JPG, PNG, or PDF file
+                  <UploadCloud size={38} color="#94a3b8" style={{ marginBottom: '0.5rem' }} />
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#1e293b' }}>
+                    Drag and drop file here, or <span style={{ color: '#d51e27', textDecoration: 'underline' }}>browse</span>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                    Maximum file size: 25 MB
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.35rem' }}>
+                    Supports JPG, PNG, or PDF · Maximum file size: 25 MB
                   </div>
                 </div>
               )}
