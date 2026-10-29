@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Bell, Search, PlusCircle, LogOut, CheckCheck } from 'lucide-react';
+import { Bell, Search, PlusCircle, LogOut, CheckCheck, Menu } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 import { notificationsApi } from '../services/api';
 
-export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, setSearchQuery }) {
+export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, setSearchQuery, onToggleSidebar }) {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -57,7 +57,7 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
         background: '#d51e27',
         color: '#ffffff',
         height: '64px',
-        padding: '0 1.5rem',
+        padding: '0 1rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -67,11 +67,31 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
       }}
     >
-      {/* Left: Brand Logo & Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      {/* Left: Mobile Menu + Brand Logo & Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {/* Mobile Hamburger Toggle */}
+        <button
+          onClick={onToggleSidebar}
+          className="mobile-only"
+          aria-label="Toggle navigation menu"
+          style={{
+            background: 'rgba(255,255,255,0.18)',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '0.45rem',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <Menu size={22} />
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
           <BrandLogo size="normal" inverted={true} />
           <div
+            className="desktop-only"
             style={{
               height: '24px',
               width: '1px',
@@ -80,6 +100,7 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
             }}
           />
           <span
+            className="desktop-only"
             style={{
               fontSize: '0.875rem',
               fontWeight: 700,
@@ -93,12 +114,13 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
           </span>
         </div>
 
-        {/* Global Search */}
+        {/* Global Search (Desktop only to prevent mobile overflow) */}
         <div
+          className="desktop-only"
           style={{
             position: 'relative',
             marginLeft: '1rem',
-            width: '280px',
+            width: '260px',
             display: 'flex',
             alignItems: 'center'
           }}
@@ -206,6 +228,7 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
                 right: 0,
                 top: '48px',
                 width: '340px',
+                maxWidth: 'calc(100vw - 1.5rem)',
                 background: '#ffffff',
                 color: '#0f172a',
                 borderRadius: '12px',
@@ -292,7 +315,7 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
             alignItems: 'center',
             gap: '0.6rem',
             background: 'rgba(0,0,0,0.15)',
-            padding: '0.35rem 0.85rem',
+            padding: '0.35rem 0.65rem',
             borderRadius: '24px'
           }}
         >
@@ -312,7 +335,7 @@ export default function Navbar({ user, onLogout, onOpenIssueModal, searchQuery, 
           >
             {user?.name ? user.name[0] : 'U'}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+          <div className="desktop-only" style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
             <span style={{ fontSize: '0.825rem', fontWeight: 700, lineHeight: 1.2 }}>
               {user?.name || 'User'}
             </span>

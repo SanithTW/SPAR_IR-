@@ -10,10 +10,11 @@ import {
   Settings,
   PackageCheck,
   Store,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
 
-export default function Sidebar({ user, activeTab, setActiveTab }) {
+export default function Sidebar({ user, activeTab, setActiveTab, isOpen = false, onClose }) {
   const isAdmin = user?.role === 'admin';
   const isMarketingUser = user?.role === 'user';
   const isBranch = user?.role === 'branch';
@@ -56,18 +57,70 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
   }
 
   return (
-    <aside
-      style={{
-        width: '240px',
-        background: '#ffffff',
-        borderRight: '1px solid #e2e8f0',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 'calc(100vh - 64px)',
-        padding: '1.25rem 0.75rem',
-        flexShrink: 0
-      }}
-    >
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {isOpen && (
+        <div
+          className="mobile-only"
+          onClick={onClose}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 90
+          }}
+        />
+      )}
+
+      <aside
+        className={`app-sidebar ${isOpen ? 'sidebar-open' : ''}`}
+        style={{
+          width: '240px',
+          background: '#ffffff',
+          borderRight: '1px solid #e2e8f0',
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 'calc(100vh - 64px)',
+          padding: '1.25rem 0.75rem',
+          flexShrink: 0
+        }}
+      >
+        {/* Mobile Header with Close button */}
+        <div
+          className="mobile-only"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.25rem 0.5rem 1rem 0.5rem',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#d51e27', letterSpacing: '0.05em' }}>
+              SPAR NAVIGATION
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close menu"
+            style={{
+              background: '#f1f5f9',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '0.4rem',
+              color: '#475569',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
       {/* Branch Badge indicator if logged in as branch */}
       {isBranch && (
         <div
@@ -105,7 +158,10 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                setActiveTab(item.id);
+                if (onClose) onClose();
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -131,6 +187,7 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
 
       {/* Bottom helper card */}
       <div
+        className="desktop-only"
         style={{
           marginTop: 'auto',
           padding: '0.85rem',
@@ -163,5 +220,6 @@ export default function Sidebar({ user, activeTab, setActiveTab }) {
         </div>
       </div>
     </aside>
+  </>
   );
 }

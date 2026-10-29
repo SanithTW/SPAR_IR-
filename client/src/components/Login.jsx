@@ -38,7 +38,7 @@ export default function Login({ onLoginSuccess }) {
     >
       {/* Centered Floating Card Matching Mockup */}
       <div
-        className="animate-fade-in"
+        className="animate-fade-in login-card"
         style={{
           width: '100%',
           maxWidth: '860px',
@@ -53,6 +53,7 @@ export default function Login({ onLoginSuccess }) {
       >
         {/* Left Section: Red Branded Angled Banner */}
         <div
+          className="login-banner"
           style={{
             flex: '1.08',
             background: '#d51e27',
@@ -148,6 +149,7 @@ export default function Login({ onLoginSuccess }) {
 
         {/* Right Section: Sign In Form */}
         <div
+          className="login-form-container"
           style={{
             flex: '1',
             background: '#ffffff',

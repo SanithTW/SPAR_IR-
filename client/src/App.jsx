@@ -26,6 +26,7 @@ export default function App() {
   const [user, setUser] = useState(getStoredUser());
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Modals state
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -74,14 +75,18 @@ export default function App() {
         onOpenIssueModal={() => setShowIssueModal(true)}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
       />
 
       {/* App Body: Sidebar + Main Content Area */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         <Sidebar
           user={user}
           activeTab={activeTab}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           setActiveTab={(tab) => {
+            setSidebarOpen(false);
             if (tab === 'issue-item') {
               setShowIssueModal(true);
             } else {
@@ -90,7 +95,10 @@ export default function App() {
           }}
         />
 
-        <main style={{ flex: 1, padding: '1.75rem', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)' }}>
+        <main
+          className="app-main-content"
+          style={{ flex: 1, padding: '1.75rem', overflowY: 'auto', maxHeight: 'calc(100vh - 64px)', minWidth: 0 }}
+        >
           {/* Main views rendering */}
           {activeTab === 'dashboard' && (
             isBranch ? (

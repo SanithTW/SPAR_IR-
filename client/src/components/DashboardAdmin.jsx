@@ -50,9 +50,10 @@ export default function DashboardAdmin({ onSelectIssue, onOpenIssueModal, search
 
       {/* KPI Summary Cards Strip (Matches Panel 2) */}
       <div
+        className="admin-kpi-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: '1.25rem'
         }}
       >
@@ -183,7 +184,7 @@ export default function DashboardAdmin({ onSelectIssue, onOpenIssueModal, search
       </div>
 
       {/* Main Content Split: POSM Calendar & Recent Activity stream */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
+      <div className="admin-main-split" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem', alignItems: 'start' }}>
         {/* Calendar View */}
         <div>
           <CalendarMonth

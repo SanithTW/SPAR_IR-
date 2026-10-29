@@ -164,42 +164,45 @@ export default function CalendarMonth({
         </div>
       </div>
 
-      {/* Weekday Labels */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          background: '#f8fafc',
-          borderBottom: '1px solid #e2e8f0',
-          textAlign: 'center'
-        }}
-      >
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+      {/* Scrollable Grid Container for Mobile */}
+      <div style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ minWidth: '480px' }}>
+          {/* Weekday Labels */}
           <div
-            key={d}
             style={{
-              padding: '0.6rem 0.25rem',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              color: '#64748b',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+              textAlign: 'center'
             }}
           >
-            {d}
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+              <div
+                key={d}
+                style={{
+                  padding: '0.6rem 0.25rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                {d}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Days Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          background: '#e2e8f0',
-          gap: '1px'
-        }}
-      >
+          {/* Days Grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(7, 1fr)',
+              background: '#e2e8f0',
+              gap: '1px'
+            }}
+          >
         {calendarCells.map((cell, idx) => {
           const isToday = cell.dateStr === todayStr;
           return (
@@ -274,6 +277,8 @@ export default function CalendarMonth({
             </div>
           );
         })}
+      </div>
+        </div>
       </div>
 
       {/* Footer Legend */}

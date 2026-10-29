@@ -63,6 +63,7 @@ export default function DashboardBranch({ user, onSelectIssue, searchQuery }) {
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {/* Branch Header Greeting Banner */}
       <div
+        className="branch-banner"
         style={{
           background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
           color: '#ffffff',
@@ -84,14 +85,15 @@ export default function DashboardBranch({ user, onSelectIssue, searchQuery }) {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 4px 10px rgba(213, 30, 39, 0.4)'
+              boxShadow: '0 4px 10px rgba(213, 30, 39, 0.4)',
+              flexShrink: 0
             }}
           >
             <Store size={28} color="#ffffff" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: "'Outfit', sans-serif" }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+              <h1 style={{ fontSize: '1.4rem', fontWeight: 800, fontFamily: "'Outfit', sans-serif", margin: 0 }}>
                 {branchDetail?.name || user?.branch_name || user?.name || 'My Branch'}
               </h1>
               <span className="badge badge-received" style={{ fontSize: '0.7rem' }}>
@@ -101,13 +103,13 @@ export default function DashboardBranch({ user, onSelectIssue, searchQuery }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginTop: '0.35rem', fontSize: '0.8rem', color: '#94a3b8', flexWrap: 'wrap' }}>
               {(branchDetail?.address || branchDetail?.town || user?.branch_town) && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <MapPin size={14} color="#d51e27" />
+                  <MapPin size={14} color="#d51e27" flexShrink={0} />
                   {[branchDetail?.address, branchDetail?.town || user?.branch_town].filter(Boolean).join(', ')}
                 </span>
               )}
               {(branchDetail?.phone || user?.phone) && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <Phone size={14} color="#64748b" />
+                  <Phone size={14} color="#64748b" flexShrink={0} />
                   {branchDetail?.phone || user?.phone}
                 </span>
               )}
@@ -116,7 +118,7 @@ export default function DashboardBranch({ user, onSelectIssue, searchQuery }) {
         </div>
 
         {/* Quick summary counts */}
-        <div style={{ display: 'flex', gap: '1.25rem' }}>
+        <div className="branch-counts-strip" style={{ display: 'flex', gap: '0.85rem' }}>
           <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.08)', padding: '0.5rem 1rem', borderRadius: '10px' }}>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38bdf8' }}>{pendingConfirmation.length}</div>
             <div style={{ fontSize: '0.7rem', color: '#cbd5e1' }}>Awaiting Receipt</div>
