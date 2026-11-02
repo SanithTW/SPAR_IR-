@@ -204,7 +204,33 @@ export const settingsApi = {
 
 // Upload API
 export const uploadApi = {
+  // Uploads go straight from the browser to Supabase Storage via a signed URL,
+  // so large files never pass through the API server (Vercel caps bodies at 4.5MB).
   uploadFile: async (file) => {
+    const { upload_url, public_url } = await apiRequest('/upload/sign', {
+      method: 'POST',
+      body: JSON.stringify({ filename: file.name, size: file.size, type: file.type })
+    });
+
+    const response = await fetch(upload_url, {
+      method: 'PUT',
+      headers: {
+        'content-type': file.type || 'application/octet-stream',
+        'x-upsert': 'false'
+      },
+      body: file
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.message || data.error || `Upload failed (${response.status})`);
+    }
+
+    return { url: public_url, filename: file.name, size: file.size, storage: 'supabase' };
+  },
+
+  // Legacy path through the API server; only works for files under ~4MB on Vercel
+  uploadFileViaServer: async (file) => {
     const token = getToken();
     const formData = new FormData();
     formData.append('file', file);
