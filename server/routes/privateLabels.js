@@ -1,43 +1,41 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { supabase, run, insertOne } = require('../db');
 const { authenticateToken, requireAdmin } = require('../auth');
 
-// Optional Supabase integration
-let supabase = null;
-try {
-  const sbModule = require('../supabase');
-  supabase = sbModule.supabase;
-} catch (e) {
-  // Supabase not available in this instance
+const LABEL_SELECT = '*, users(name)';
+
+function flatten(row) {
+  if (!row) return row;
+  const { users, ...label } = row;
+  return { ...label, created_by_name: users ? users.name : null };
+}
+
+async function getLabel(id) {
+  return flatten(await run(supabase.from('private_labels').select(LABEL_SELECT).eq('id', id).maybeSingle()));
+}
+
+function containsCI(value, term) {
+  return (value || '').toLowerCase().includes(term);
 }
 
 // GET /api/private-labels - View all private label assets (Available to all authenticated users)
-router.get('/', authenticateToken, (req, res) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const { category, search } = req.query;
-    let query = `
-      SELECT pl.*, u.name as created_by_name
-      FROM private_labels pl
-      LEFT JOIN users u ON pl.created_by = u.id
-      WHERE 1=1
-    `;
-    const params = [];
 
-    if (category && category !== 'All') {
-      query += ` AND pl.category = ?`;
-      params.push(category);
-    }
+    let q = supabase.from('private_labels').select(LABEL_SELECT);
+    if (category && category !== 'All') q = q.eq('category', category);
+
+    let records = (await run(q.order('id', { ascending: false }))).map(flatten);
 
     if (search && search.trim()) {
-      query += ` AND (pl.title LIKE ? OR pl.description LIKE ? OR pl.file_name LIKE ?)`;
-      const term = `%${search.trim()}%`;
-      params.push(term, term, term);
+      const term = search.trim().toLowerCase();
+      records = records.filter((r) =>
+        containsCI(r.title, term) || containsCI(r.description, term) || containsCI(r.file_name, term)
+      );
     }
 
-    query += ` ORDER BY pl.id DESC`;
-
-    const records = db.prepare(query).all(...params);
     res.json(records);
   } catch (err) {
     console.error('Error fetching private labels:', err);
@@ -46,15 +44,10 @@ router.get('/', authenticateToken, (req, res) => {
 });
 
 // GET /api/private-labels/:id - Get single private label
-router.get('/:id', authenticateToken, (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const item = db.prepare(`
-      SELECT pl.*, u.name as created_by_name
-      FROM private_labels pl
-      LEFT JOIN users u ON pl.created_by = u.id
-      WHERE pl.id = ?
-    `).get(id);
+    const item = isNaN(id) ? null : await getLabel(id);
 
     if (!item) {
       return res.status(404).json({ error: 'Private label asset not found' });
@@ -78,54 +71,18 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'A file attachment (JPG, PNG, or PDF) is required' });
     }
 
-    const created_by = req.user.id || null;
-    const cat = category && category.trim() ? category.trim() : 'General';
+    const created = await insertOne('private_labels', {
+      title: title.trim(),
+      category: category && category.trim() ? category.trim() : 'General',
+      description: description ? description.trim() : null,
+      file_url: file_url.trim(),
+      file_name: file_name || null,
+      file_type: file_type || null,
+      file_size: file_size || null,
+      created_by: req.user.id || null
+    }, 'id');
 
-    const stmt = db.prepare(`
-      INSERT INTO private_labels (title, category, description, file_url, file_name, file_type, file_size, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const info = stmt.run(
-      title.trim(),
-      cat,
-      description ? description.trim() : null,
-      file_url.trim(),
-      file_name || null,
-      file_type || null,
-      file_size || null,
-      created_by
-    );
-
-    const newItem = db.prepare(`
-      SELECT pl.*, u.name as created_by_name
-      FROM private_labels pl
-      LEFT JOIN users u ON pl.created_by = u.id
-      WHERE pl.id = ?
-    `).get(info.lastInsertRowid);
-
-    // Sync to Supabase if available
-    if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-      try {
-        await supabase.from('private_labels').upsert({
-          id: newItem.id,
-          title: newItem.title,
-          category: newItem.category,
-          description: newItem.description,
-          file_url: newItem.file_url,
-          file_name: newItem.file_name,
-          file_type: newItem.file_type,
-          file_size: newItem.file_size,
-          created_by: newItem.created_by,
-          created_at: newItem.created_at,
-          updated_at: newItem.updated_at
-        }, { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('Supabase private label upsert notice:', sbErr.message);
-      }
-    }
-
-    res.status(201).json(newItem);
+    res.status(201).json(await getLabel(created.id));
   } catch (err) {
     console.error('Error creating private label:', err);
     res.status(500).json({ error: 'Failed to create private label asset' });
@@ -136,7 +93,9 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const existing = db.prepare('SELECT * FROM private_labels WHERE id = ?').get(id);
+    const existing = isNaN(id)
+      ? null
+      : await run(supabase.from('private_labels').select('id').eq('id', id).maybeSingle());
 
     if (!existing) {
       return res.status(404).json({ error: 'Private label asset not found' });
@@ -144,65 +103,18 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 
     const { title, category, description, file_url, file_name, file_type, file_size } = req.body;
 
-    const newTitle = title !== undefined ? title.trim() : existing.title;
-    const newCategory = category !== undefined ? category.trim() : existing.category;
-    const newDescription = description !== undefined ? description : existing.description;
-    const newFileUrl = file_url !== undefined ? file_url.trim() : existing.file_url;
-    const newFileName = file_name !== undefined ? file_name : existing.file_name;
-    const newFileType = file_type !== undefined ? file_type : existing.file_type;
-    const newFileSize = file_size !== undefined ? file_size : existing.file_size;
+    const patch = { updated_at: new Date().toISOString() };
+    if (title !== undefined) patch.title = title.trim();
+    if (category !== undefined) patch.category = category.trim();
+    if (description !== undefined) patch.description = description;
+    if (file_url !== undefined) patch.file_url = file_url.trim();
+    if (file_name !== undefined) patch.file_name = file_name;
+    if (file_type !== undefined) patch.file_type = file_type;
+    if (file_size !== undefined) patch.file_size = file_size;
 
-    db.prepare(`
-      UPDATE private_labels
-      SET title = ?,
-          category = ?,
-          description = ?,
-          file_url = ?,
-          file_name = ?,
-          file_type = ?,
-          file_size = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `).run(
-      newTitle,
-      newCategory,
-      newDescription,
-      newFileUrl,
-      newFileName,
-      newFileType,
-      newFileSize,
-      id
-    );
+    await run(supabase.from('private_labels').update(patch).eq('id', id));
 
-    const updatedItem = db.prepare(`
-      SELECT pl.*, u.name as created_by_name
-      FROM private_labels pl
-      LEFT JOIN users u ON pl.created_by = u.id
-      WHERE pl.id = ?
-    `).get(id);
-
-    // Sync to Supabase if available
-    if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-      try {
-        await supabase.from('private_labels').upsert({
-          id: updatedItem.id,
-          title: updatedItem.title,
-          category: updatedItem.category,
-          description: updatedItem.description,
-          file_url: updatedItem.file_url,
-          file_name: updatedItem.file_name,
-          file_type: updatedItem.file_type,
-          file_size: updatedItem.file_size,
-          created_by: updatedItem.created_by,
-          created_at: updatedItem.created_at,
-          updated_at: updatedItem.updated_at
-        }, { onConflict: 'id' });
-      } catch (sbErr) {
-        console.warn('Supabase private label update notice:', sbErr.message);
-      }
-    }
-
-    res.json(updatedItem);
+    res.json(await getLabel(id));
   } catch (err) {
     console.error('Error updating private label:', err);
     res.status(500).json({ error: 'Failed to update private label asset' });
@@ -213,22 +125,15 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const existing = db.prepare('SELECT * FROM private_labels WHERE id = ?').get(id);
+    const existing = isNaN(id)
+      ? null
+      : await run(supabase.from('private_labels').select('id').eq('id', id).maybeSingle());
 
     if (!existing) {
       return res.status(404).json({ error: 'Private label asset not found' });
     }
 
-    db.prepare('DELETE FROM private_labels WHERE id = ?').run(id);
-
-    // Sync to Supabase if active
-    if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-      try {
-        await supabase.from('private_labels').delete().eq('id', id);
-      } catch (sbErr) {
-        console.warn('Supabase private label delete notice:', sbErr.message);
-      }
-    }
+    await run(supabase.from('private_labels').delete().eq('id', id));
 
     res.json({ success: true, message: 'Private label asset deleted successfully' });
   } catch (err) {

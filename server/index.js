@@ -3,7 +3,6 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
 
 const authRoutes = require('./routes/auth');
 const branchRoutes = require('./routes/branches');
@@ -42,6 +41,13 @@ app.get('/api/health', (req, res) => {
     app: 'SPAR POSM Tracker API',
     timestamp: new Date().toISOString()
   });
+});
+
+// Unhandled errors (including rejected async handlers) -> JSON 500
+app.use((err, req, res, next) => {
+  console.error(`[${req.method} ${req.originalUrl}]`, err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 if (!process.env.VERCEL) {

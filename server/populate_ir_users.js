@@ -1,13 +1,10 @@
+// Upserts the 28 official IR branches and their branch-user accounts into Supabase.
+// Usage: node server/populate_ir_users.js
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const db = require('./db');
-
-// Ensure columns exist in SQLite
-try { db.exec('ALTER TABLE users ADD COLUMN phone TEXT'); } catch (e) {}
-try { db.exec('ALTER TABLE users ADD COLUMN address TEXT'); } catch (e) {}
-try { db.exec('ALTER TABLE branches ADD COLUMN opening_date TEXT'); } catch (e) {}
+const { supabase, run, insertOne } = require('./db');
 
 const irData = [
   {
@@ -321,82 +318,58 @@ const irData = [
 ];
 
 async function populate() {
-  console.log('🔄 Populating 28 IR branches and user accounts...');
+  console.log('🔄 Populating 28 IR branches and user accounts in Supabase...');
 
-  const passwordHash = bcrypt.hashSync('spar123', 8);
-
-  // Step 1: Ensure branches 1 to 28 exist and match the IR data
-  for (const ir of irData) {
-    const existingBranch = db.prepare('SELECT id FROM branches WHERE id = ?').get(ir.no);
-    if (existingBranch) {
-      db.prepare(`
-        UPDATE branches
-        SET name = ?, town = ?, address = ?, contact = ?, phone = ?, opening_date = ?, active = 1
-        WHERE id = ?
-      `).run(ir.name, ir.town, ir.address, ir.contact, ir.phone, ir.opening_date, ir.no);
-    } else {
-      db.prepare(`
-        INSERT INTO branches (id, name, town, address, contact, phone, opening_date, active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-      `).run(ir.no, ir.name, ir.town, ir.address, ir.contact, ir.phone, ir.opening_date);
-    }
-  }
+  // Step 1: Upsert branches 1 to 28 with the IR master data
+  await run(supabase.from('branches').upsert(irData.map((ir) => ({
+    id: ir.no,
+    name: ir.name,
+    town: ir.town,
+    address: ir.address,
+    contact: ir.contact,
+    phone: ir.phone,
+    opening_date: ir.opening_date,
+    active: 1
+  })), { onConflict: 'id' }));
 
   // Step 2: Remove old mock branch users (excluding admin and marketing user)
-  db.prepare(`
-    DELETE FROM users
-    WHERE role = 'branch' AND branch_id NOT IN (${irData.map(i => i.no).join(',')})
-  `).run();
+  await run(supabase.from('users').delete()
+    .eq('role', 'branch')
+    .not('branch_id', 'in', `(${irData.map((i) => i.no).join(',')})`));
 
   // Step 3: Insert or update user accounts for each of the 28 IR branches
   for (const ir of irData) {
     const displayName = `${ir.name} - ${ir.contact}`;
     // Password set directly to phone number without any spaces (e.g. 0772445813)
     const phonePassword = ir.phone.replace(/[^0-9]/g, '');
-    const phonePasswordHash = bcrypt.hashSync(phonePassword, 8);
+    const fields = {
+      name: displayName,
+      username: ir.username,
+      email: ir.email,
+      phone: ir.phone,
+      address: ir.address,
+      password_hash: bcrypt.hashSync(phonePassword, 8),
+      role: 'branch',
+      branch_id: ir.no,
+      active: 1
+    };
 
-    const existingUser = db.prepare('SELECT id, password_hash FROM users WHERE username = ? OR branch_id = ?').get(ir.username, ir.no);
+    const existing = await run(supabase.from('users').select('id')
+      .or(`username.eq.${ir.username},branch_id.eq.${ir.no}`).limit(1));
 
-    if (existingUser) {
-      db.prepare(`
-        UPDATE users
-        SET name = ?,
-            username = ?,
-            email = ?,
-            phone = ?,
-            address = ?,
-            password_hash = ?,
-            role = 'branch',
-            branch_id = ?,
-            active = 1
-        WHERE id = ?
-      `).run(displayName, ir.username, ir.email, ir.phone, ir.address, phonePasswordHash, ir.no, existingUser.id);
+    if (existing.length) {
+      await run(supabase.from('users').update(fields).eq('id', existing[0].id));
       console.log(`User [${ir.username}] password set to phone [${phonePassword}]`);
     } else {
-      db.prepare(`
-        INSERT INTO users (name, username, email, phone, address, password_hash, role, branch_id, active)
-        VALUES (?, ?, ?, ?, ?, ?, 'branch', ?, 1)
-      `).run(displayName, ir.username, ir.email, ir.phone, ir.address, phonePasswordHash, ir.no);
+      await insertOne('users', fields, 'id');
       console.log(`Created user [${ir.username}] password set to phone [${phonePassword}]`);
     }
   }
 
-  console.log('✅ Local database population complete!');
-
-  // Optional: Sync to Supabase
-  try {
-    const { supabase } = require('./supabase');
-    if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-      console.log('⏳ Syncing updated branches and users to Supabase...');
-      const branches = db.prepare('SELECT * FROM branches').all();
-      const users = db.prepare('SELECT * FROM users').all();
-      await supabase.from('branches').upsert(branches, { onConflict: 'id' });
-      await supabase.from('users').upsert(users, { onConflict: 'id' });
-      console.log('✅ Supabase sync complete!');
-    }
-  } catch (sbErr) {
-    console.warn('Supabase sync note:', sbErr.message);
-  }
+  console.log('✅ Supabase population complete!');
 }
 
-populate().catch(console.error);
+populate().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

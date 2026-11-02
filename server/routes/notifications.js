@@ -1,24 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { supabase, run } = require('../db');
 const { authenticateToken } = require('../auth');
 
+// Applies the visibility rule for the current user:
+//   (target_role = role OR target_role IS NULL)
+//   AND (branch_id IS NULL OR branch_id = user's branch)
+//   AND (user_id IS NULL OR user_id = user's id)
+function forUser(query, { role, branch_id, id: userId }) {
+  query = query.or(`target_role.eq.${role},target_role.is.null`);
+  query = branch_id
+    ? query.or(`branch_id.is.null,branch_id.eq.${parseInt(branch_id, 10)}`)
+    : query.is('branch_id', null);
+  query = query.or(`user_id.is.null,user_id.eq.${parseInt(userId, 10)}`);
+  return query;
+}
+
 // GET /api/notifications
-router.get('/', authenticateToken, (req, res) => {
-  const { role, branch_id, id: userId } = req.user;
-
-  let query = `
-    SELECT * FROM notifications
-    WHERE (
-      (target_role = ? OR target_role IS NULL)
-      AND (branch_id IS NULL OR branch_id = ?)
-      AND (user_id IS NULL OR user_id = ?)
-    )
-    ORDER BY created_at DESC
-    LIMIT 30
-  `;
-
-  const notifications = db.prepare(query).all(role, branch_id || null, userId);
+router.get('/', authenticateToken, async (req, res) => {
+  const notifications = await run(
+    forUser(supabase.from('notifications').select('*'), req.user)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(30)
+  );
   const unreadCount = notifications.filter(n => n.is_read === 0).length;
 
   res.json({
@@ -27,28 +32,19 @@ router.get('/', authenticateToken, (req, res) => {
   });
 });
 
-// POST /api/notifications/:id/read
-router.post('/:id/read', authenticateToken, (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  db.prepare('UPDATE notifications SET is_read = 1 WHERE id = ?').run(id);
-  res.json({ message: 'Marked as read' });
+// POST /api/notifications/read-all
+router.post('/read-all', authenticateToken, async (req, res) => {
+  await run(forUser(supabase.from('notifications').update({ is_read: 1 }), req.user).eq('is_read', 0));
+  res.json({ message: 'All marked as read' });
 });
 
-// POST /api/notifications/read-all
-router.post('/read-all', authenticateToken, (req, res) => {
-  const { role, branch_id, id: userId } = req.user;
-
-  db.prepare(`
-    UPDATE notifications
-    SET is_read = 1
-    WHERE (
-      (target_role = ? OR target_role IS NULL)
-      AND (branch_id IS NULL OR branch_id = ?)
-      AND (user_id IS NULL OR user_id = ?)
-    )
-  `).run(role, branch_id || null, userId);
-
-  res.json({ message: 'All marked as read' });
+// POST /api/notifications/:id/read
+router.post('/:id/read', authenticateToken, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!isNaN(id)) {
+    await run(supabase.from('notifications').update({ is_read: 1 }).eq('id', id));
+  }
+  res.json({ message: 'Marked as read' });
 });
 
 module.exports = router;

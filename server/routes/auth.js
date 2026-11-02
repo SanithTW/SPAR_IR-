@@ -1,23 +1,37 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../db');
+const { supabase, run, escapeLike } = require('../db');
 const { generateToken, authenticateToken } = require('../auth');
 
+// Flatten the embedded branch into branch_name / branch_town
+function withBranch(row) {
+  if (!row) return row;
+  const { branches, ...user } = row;
+  return {
+    ...user,
+    branch_name: branches ? branches.name : null,
+    branch_town: branches ? branches.town : null
+  };
+}
+
 // POST /api/auth/login
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  const user = db.prepare(`
-    SELECT u.*, b.name as branch_name, b.town as branch_town
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    WHERE LOWER(u.username) = LOWER(?) AND u.active = 1
-  `).get(username.trim());
+  const user = withBranch(await run(
+    supabase
+      .from('users')
+      .select('*, branches(name, town)')
+      .ilike('username', escapeLike(username.trim()))
+      .eq('active', 1)
+      .limit(1)
+      .maybeSingle()
+  ));
 
   if (!user) {
     return res.status(401).json({ error: 'Invalid username or password' });
@@ -66,26 +80,38 @@ router.get('/me', authenticateToken, (req, res) => {
 });
 
 // GET /api/auth/demo-users (For quick testing & presentation switch)
-router.get('/demo-users', (req, res) => {
-  const users = db.prepare(`
-    SELECT u.id, u.name, u.username, u.role, u.branch_id, b.name as branch_name, b.town as branch_town
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    WHERE u.active = 1
-    ORDER BY CASE u.role WHEN 'admin' THEN 1 WHEN 'user' THEN 2 ELSE 3 END, u.name ASC
-  `).all();
+router.get('/demo-users', async (req, res) => {
+  const rows = await run(
+    supabase
+      .from('users')
+      .select('id, name, username, role, branch_id, branches(name, town)')
+      .eq('active', 1)
+  );
+  const roleOrder = { admin: 1, user: 2 };
+  const users = rows
+    .map(withBranch)
+    .sort((a, b) =>
+      (roleOrder[a.role] || 3) - (roleOrder[b.role] || 3) || a.name.localeCompare(b.name)
+    );
   res.json(users);
 });
 
 // POST /api/auth/quick-switch
-router.post('/quick-switch', (req, res) => {
+router.post('/quick-switch', async (req, res) => {
   const { userId } = req.body;
-  const user = db.prepare(`
-    SELECT u.*, b.name as branch_name, b.town as branch_town
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    WHERE u.id = ? AND u.active = 1
-  `).get(userId);
+  const id = parseInt(userId, 10);
+  if (isNaN(id)) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  const user = withBranch(await run(
+    supabase
+      .from('users')
+      .select('*, branches(name, town)')
+      .eq('id', id)
+      .eq('active', 1)
+      .maybeSingle()
+  ));
 
   if (!user) {
     return res.status(404).json({ error: 'User not found' });

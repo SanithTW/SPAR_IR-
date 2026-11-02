@@ -1,68 +1,61 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { supabase, run, fetchAll } = require('../db');
 const { authenticateToken, requireAdminOrUser } = require('../auth');
-const { computeIssueDisplay } = require('../utils');
+const { computeIssuesDisplay } = require('../utils');
 
 // Require Admin or Marketing User for all reports
 router.use(authenticateToken);
 router.use(requireAdminOrUser);
 
+const REPORT_SELECT = '*, branches!inner(name, town), item_types!inner(name), users(name)';
+
+function flatten(row) {
+  const { branches: b, item_types: t, users: u, ...issue } = row;
+  return {
+    ...issue,
+    branch_name: b ? b.name : null,
+    branch_town: b ? b.town : null,
+    item_type_name: t ? t.name : null,
+    creator_name: u ? u.name : null
+  };
+}
+
+// Load issues (joined + display fields) with optional month / branch / status filters
+async function loadIssues({ month, branch_id, statuses, ascending = false } = {}) {
+  const rows = await fetchAll(() => {
+    let q = supabase.from('issues').select(REPORT_SELECT);
+    if (statuses) q = q.in('status', statuses);
+    if (month && /^\d{4}-\d{2}$/.test(month)) q = q.like('issue_date', `${month}%`);
+    if (branch_id) q = q.eq('branch_id', parseInt(branch_id, 10));
+    return q.order('issue_date', { ascending }).order('id', { ascending });
+  });
+  return computeIssuesDisplay(rows.map(flatten));
+}
+
 // GET /api/reports/outstanding
-router.get('/outstanding', (req, res) => {
+router.get('/outstanding', async (req, res) => {
   const { month, branch_id } = req.query;
-
-  let query = `
-    SELECT i.*,
-           b.name as branch_name, b.town as branch_town,
-           t.name as item_type_name
-    FROM issues i
-    JOIN branches b ON i.branch_id = b.id
-    JOIN item_types t ON i.item_type_id = t.id
-    WHERE i.status IN ('Issued', 'Pending')
-  `;
-  const params = [];
-
-  if (month) {
-    query += ' AND i.issue_date LIKE ?';
-    params.push(`${month}%`);
-  }
-
-  if (branch_id) {
-    query += ' AND i.branch_id = ?';
-    params.push(parseInt(branch_id, 10));
-  }
-
-  query += ' ORDER BY i.issue_date ASC';
-
-  const raw = db.prepare(query).all(...params);
-  const issues = raw.map(computeIssueDisplay);
+  const issues = await loadIssues({ month, branch_id, statuses: ['Issued', 'Pending'], ascending: true });
 
   // Filter only overdue items (not confirmed by 2nd of following month)
-  const outstanding = issues.filter(i => i.is_overdue === 1);
-
-  res.json(outstanding);
+  res.json(issues.filter(i => i.is_overdue === 1));
 });
 
 // GET /api/reports/branch-history
-router.get('/branch-history', (req, res) => {
-  const branches = db.prepare('SELECT id, name, town FROM branches WHERE active = 1 ORDER BY name ASC').all();
+router.get('/branch-history', async (req, res) => {
+  const [branches, issues] = await Promise.all([
+    run(supabase.from('branches').select('id, name, town').eq('active', 1).order('name', { ascending: true })),
+    loadIssues()
+  ]);
+
+  const byBranch = {};
+  for (const i of issues) (byBranch[i.branch_id] = byBranch[i.branch_id] || []).push(i);
 
   const history = branches.map(b => {
-    const raw = db.prepare(`
-      SELECT i.*, t.name as item_type_name
-      FROM issues i
-      JOIN item_types t ON i.item_type_id = t.id
-      WHERE i.branch_id = ?
-    `).all(b.id);
-
-    const issues = raw.map(computeIssueDisplay);
-    const total = issues.length;
-    const received = issues.filter(i => i.status === 'Received').length;
-    const problem = issues.filter(i => i.status === 'Problem').length;
-    const overdue = issues.filter(i => i.is_overdue === 1 && i.status === 'Issued').length;
-    const pending = issues.filter(i => i.status === 'Pending').length;
-    const issuedWaiting = issues.filter(i => i.status === 'Issued' && !i.is_overdue).length;
+    const list = byBranch[b.id] || [];
+    const total = list.length;
+    const received = list.filter(i => i.status === 'Received').length;
 
     return {
       branch_id: b.id,
@@ -70,10 +63,10 @@ router.get('/branch-history', (req, res) => {
       branch_town: b.town,
       total_items: total,
       received_count: received,
-      problem_count: problem,
-      overdue_count: overdue,
-      pending_count: pending,
-      issued_waiting: issuedWaiting,
+      problem_count: list.filter(i => i.status === 'Problem').length,
+      overdue_count: list.filter(i => i.is_overdue === 1 && i.status === 'Issued').length,
+      pending_count: list.filter(i => i.status === 'Pending').length,
+      issued_waiting: list.filter(i => i.status === 'Issued' && !i.is_overdue).length,
       completion_rate: total > 0 ? Math.round((received / total) * 100) : 0
     };
   });
@@ -82,36 +75,26 @@ router.get('/branch-history', (req, res) => {
 });
 
 // GET /api/reports/campaign-history
-router.get('/campaign-history', (req, res) => {
-  const campaigns = db.prepare(`
-    SELECT DISTINCT campaign FROM issues ORDER BY campaign ASC
-  `).all();
+router.get('/campaign-history', async (req, res) => {
+  const issues = await loadIssues(); // newest first
 
-  const result = campaigns.map(c => {
-    const raw = db.prepare(`
-      SELECT i.*, b.name as branch_name, t.name as item_type_name
-      FROM issues i
-      JOIN branches b ON i.branch_id = b.id
-      JOIN item_types t ON i.item_type_id = t.id
-      WHERE i.campaign = ?
-    `).all(c.campaign);
+  const byCampaign = new Map();
+  for (const i of issues) {
+    if (!byCampaign.has(i.campaign)) byCampaign.set(i.campaign, []);
+    byCampaign.get(i.campaign).push(i);
+  }
 
-    const issues = raw.map(computeIssueDisplay);
-    const totalBranches = new Set(issues.map(i => i.branch_id)).size;
-    const totalQty = issues.reduce((acc, curr) => acc + (curr.qty || 1), 0);
-    const received = issues.filter(i => i.status === 'Received').length;
-    const problem = issues.filter(i => i.status === 'Problem').length;
-    const overdue = issues.filter(i => i.is_overdue === 1 && i.status === 'Issued').length;
-
+  const result = [...byCampaign.keys()].sort().map(campaign => {
+    const list = byCampaign.get(campaign);
     return {
-      campaign: c.campaign,
-      total_issues: issues.length,
-      total_branches: totalBranches,
-      total_quantity: totalQty,
-      received_count: received,
-      problem_count: problem,
-      overdue_count: overdue,
-      latest_issue_date: issues[0]?.issue_date || null
+      campaign,
+      total_issues: list.length,
+      total_branches: new Set(list.map(i => i.branch_id)).size,
+      total_quantity: list.reduce((acc, curr) => acc + (curr.qty || 1), 0),
+      received_count: list.filter(i => i.status === 'Received').length,
+      problem_count: list.filter(i => i.status === 'Problem').length,
+      overdue_count: list.filter(i => i.is_overdue === 1 && i.status === 'Issued').length,
+      latest_issue_date: list[0]?.issue_date || null
     };
   });
 
@@ -119,49 +102,25 @@ router.get('/campaign-history', (req, res) => {
 });
 
 // GET /api/reports/export (CSV export compatible with Microsoft Excel)
-router.get('/export', (req, res) => {
+router.get('/export', async (req, res) => {
   const { type, month, branch_id } = req.query; // 'outstanding' | 'all' | 'branch' | 'campaign'
 
-  let query = `
-    SELECT i.id, b.name as branch_name, b.town as branch_town,
-           t.name as item_type, i.campaign, i.qty, i.issue_date,
-           i.status, i.received_at, i.problem_at, i.note,
-           u.name as issued_by
-    FROM issues i
-    JOIN branches b ON i.branch_id = b.id
-    JOIN item_types t ON i.item_type_id = t.id
-    LEFT JOIN users u ON i.created_by = u.id
-    WHERE 1=1
-  `;
-  const params = [];
-
-  if (month) {
-    query += ' AND i.issue_date LIKE ?';
-    params.push(`${month}%`);
-  }
-
-  if (branch_id) {
-    query += ' AND i.branch_id = ?';
-    params.push(parseInt(branch_id, 10));
-  }
-
-  query += ' ORDER BY i.issue_date DESC';
-
-  const raw = db.prepare(query).all(...params);
-  let issues = raw.map(computeIssueDisplay);
+  let issues = await loadIssues({ month, branch_id });
 
   if (type === 'outstanding') {
     issues = issues.filter(i => i.is_overdue === 1);
   }
 
+  const q = (v) => `"${String(v || '').replace(/"/g, '""')}"`;
+
   // Generate CSV rows
   const headers = ['Issue ID', 'Branch Name', 'Town', 'Item Type', 'Campaign Name', 'Quantity', 'Issue Date', 'Days Elapsed', 'Status', 'Overdue?', 'Received Date', 'Problem Date', 'Issued By', 'Notes'];
   const rows = issues.map(i => [
     i.id,
-    `"${(i.branch_name || '').replace(/"/g, '""')}"`,
-    `"${(i.branch_town || '').replace(/"/g, '""')}"`,
-    `"${(i.item_type || '').replace(/"/g, '""')}"`,
-    `"${(i.campaign || '').replace(/"/g, '""')}"`,
+    q(i.branch_name),
+    q(i.branch_town),
+    q(i.item_type_name),
+    q(i.campaign),
     i.qty || 1,
     i.issue_date,
     i.days_elapsed,
@@ -169,8 +128,8 @@ router.get('/export', (req, res) => {
     i.is_overdue ? 'YES' : 'NO',
     i.received_at || '',
     i.problem_at || '',
-    `"${(i.issued_by || '').replace(/"/g, '""')}"`,
-    `"${(i.note || '').replace(/"/g, '""')}"`
+    q(i.creator_name),
+    q(i.note)
   ]);
 
   const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');

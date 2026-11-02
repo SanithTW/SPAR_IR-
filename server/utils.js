@@ -1,8 +1,11 @@
-const db = require('./db');
+const { supabase, run } = require('./db');
 
-function getOverdueDayOfMonth() {
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'overdue_day_of_month'").get();
-  return row ? parseInt(row.value, 10) : 2;
+async function getOverdueDayOfMonth() {
+  const row = await run(
+    supabase.from('settings').select('value').eq('key', 'overdue_day_of_month').maybeSingle()
+  );
+  const day = row ? parseInt(row.value, 10) : NaN;
+  return isNaN(day) ? 2 : day;
 }
 
 /**
@@ -10,7 +13,7 @@ function getOverdueDayOfMonth() {
  * Rule: Not confirmed by the N-th (default 2nd) day of the following month.
  * e.g., Issued 27 Jun -> overdue from 2 Jul.
  */
-function isItemOverdue(issueDateStr, status) {
+function isItemOverdue(issueDateStr, status, overdueDay = 2) {
   if (status !== 'Issued' && status !== 'Pending') {
     return false;
   }
@@ -19,20 +22,14 @@ function isItemOverdue(issueDateStr, status) {
   const issueDate = new Date(issueDateStr);
   if (isNaN(issueDate.getTime())) return false;
 
-  const overdueDay = getOverdueDayOfMonth();
+  // Following month cutoff date (month is 0-indexed, so +1 is next month)
+  const cutoffDate = new Date(issueDate.getFullYear(), issueDate.getMonth() + 1, overdueDay, 0, 0, 0, 0);
 
-  // Following month cutoff date:
-  // Month is 0-indexed in JS. Month M + 1, Day = overdueDay
-  const cutoffYear = issueDate.getFullYear();
-  const cutoffMonth = issueDate.getMonth() + 1; // 0-11 -> next month
-  const cutoffDate = new Date(cutoffYear, cutoffMonth, overdueDay, 0, 0, 0, 0);
-
-  const now = new Date();
-  return now >= cutoffDate;
+  return new Date() >= cutoffDate;
 }
 
-function computeIssueDisplay(issue) {
-  const overdue = isItemOverdue(issue.issue_date, issue.status);
+function computeIssueDisplay(issue, overdueDay = 2) {
+  const overdue = isItemOverdue(issue.issue_date, issue.status, overdueDay);
   let displayStatus = issue.status;
   let statusColor = 'grey'; // Pending
 
@@ -60,8 +57,7 @@ function computeIssueDisplay(issue) {
 
   // Days elapsed
   const issueDate = new Date(issue.issue_date);
-  const now = new Date();
-  const diffTime = Math.max(0, now - issueDate);
+  const diffTime = Math.max(0, new Date() - issueDate);
   const daysElapsed = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
   return {
@@ -73,8 +69,15 @@ function computeIssueDisplay(issue) {
   };
 }
 
+// Compute display fields for a list of issues using the current overdue setting.
+async function computeIssuesDisplay(issues) {
+  const overdueDay = await getOverdueDayOfMonth();
+  return issues.map((i) => computeIssueDisplay(i, overdueDay));
+}
+
 module.exports = {
   getOverdueDayOfMonth,
   isItemOverdue,
-  computeIssueDisplay
+  computeIssueDisplay,
+  computeIssuesDisplay
 };

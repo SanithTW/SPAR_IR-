@@ -1,37 +1,39 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { supabase, run } = require('../db');
 const { authenticateToken, requireAdmin } = require('../auth');
 
-// GET /api/settings
-router.get('/', authenticateToken, (req, res) => {
-  const rows = db.prepare('SELECT * FROM settings').all();
+async function loadSettings() {
+  const rows = await run(supabase.from('settings').select('*'));
   const settings = {};
   rows.forEach(r => {
     settings[r.key] = r.value;
   });
-  res.json(settings);
+  return settings;
+}
+
+// GET /api/settings
+router.get('/', authenticateToken, async (req, res) => {
+  res.json(await loadSettings());
 });
 
 // POST /api/settings
-router.post('/', authenticateToken, requireAdmin, (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   const { overdue_day_of_month, company_name } = req.body;
 
+  const updates = [];
   if (overdue_day_of_month !== undefined) {
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('overdue_day_of_month', String(overdue_day_of_month));
+    updates.push({ key: 'overdue_day_of_month', value: String(overdue_day_of_month) });
   }
-
   if (company_name !== undefined) {
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('company_name', String(company_name));
+    updates.push({ key: 'company_name', value: String(company_name) });
   }
 
-  const rows = db.prepare('SELECT * FROM settings').all();
-  const settings = {};
-  rows.forEach(r => {
-    settings[r.key] = r.value;
-  });
+  if (updates.length) {
+    await run(supabase.from('settings').upsert(updates, { onConflict: 'key' }));
+  }
 
-  res.json({ message: 'Settings saved successfully', settings });
+  res.json({ message: 'Settings saved successfully', settings: await loadSettings() });
 });
 
 module.exports = router;

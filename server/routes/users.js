@@ -1,27 +1,43 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../db');
+const { supabase, run, insertOne, escapeLike } = require('../db');
 const { authenticateToken, requireAdmin } = require('../auth');
 
 router.use(authenticateToken);
 router.use(requireAdmin);
 
-// GET /api/users
-router.get('/', (req, res) => {
-  const users = db.prepare(`
-    SELECT u.id, u.name, u.username, u.email, u.phone, u.address, u.role, u.branch_id, u.active, u.created_at,
-           b.name as branch_name, b.town as branch_town
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    ORDER BY u.id ASC
-  `).all();
+const PUBLIC_COLUMNS = 'id, name, username, email, phone, address, role, branch_id, active, created_at, branches(name, town)';
 
-  res.json(users);
+function withBranch(row) {
+  if (!row) return row;
+  const { branches, ...user } = row;
+  return {
+    ...user,
+    branch_name: branches ? branches.name : null,
+    branch_town: branches ? branches.town : null
+  };
+}
+
+async function getPublicUser(id) {
+  return withBranch(await run(supabase.from('users').select(PUBLIC_COLUMNS).eq('id', id).maybeSingle()));
+}
+
+async function usernameTaken(username, exceptId = null) {
+  let q = supabase.from('users').select('id').ilike('username', escapeLike(username.trim()));
+  if (exceptId !== null) q = q.neq('id', exceptId);
+  const rows = await run(q.limit(1));
+  return rows.length > 0;
+}
+
+// GET /api/users
+router.get('/', async (req, res) => {
+  const rows = await run(supabase.from('users').select(PUBLIC_COLUMNS).order('id', { ascending: true }));
+  res.json(rows.map(withBranch));
 });
 
 // POST /api/users
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, username, email, phone, address, password, role, branch_id } = req.body;
 
   if (!name || !username || !password || !role) {
@@ -32,107 +48,59 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Branch assignment is required for branch role' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username.trim());
-  if (existing) {
+  if (await usernameTaken(username)) {
     return res.status(400).json({ error: 'Username is already taken' });
   }
 
-  const passwordHash = bcrypt.hashSync(password, 8);
+  const created = await insertOne('users', {
+    name: name.trim(),
+    username: username.trim(),
+    email: email || '',
+    phone: phone || '',
+    address: address || '',
+    password_hash: bcrypt.hashSync(password, 8),
+    role,
+    branch_id: role === 'branch' ? branch_id : null,
+    active: 1
+  }, 'id');
 
-  const info = db.prepare(`
-    INSERT INTO users (name, username, email, phone, address, password_hash, role, branch_id, active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-  `).run(name.trim(), username.trim(), email || '', phone || '', address || '', passwordHash, role, role === 'branch' ? branch_id : null);
-
-  const newUser = db.prepare(`
-    SELECT u.id, u.name, u.username, u.email, u.phone, u.address, u.role, u.branch_id, u.active,
-           b.name as branch_name
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    WHERE u.id = ?
-  `).get(info.lastInsertRowid);
-
-  res.status(201).json(newUser);
+  res.status(201).json(await getPublicUser(created.id));
 });
-
-// Optional Supabase integration
-let supabase = null;
-try {
-  const sbModule = require('../supabase');
-  supabase = sbModule.supabase;
-} catch (e) {
-  // Supabase not available in this instance
-}
 
 // PUT /api/users/:id
 router.put('/:id', async (req, res) => {
   const userId = parseInt(req.params.id, 10);
   const { name, username, email, phone, address, password, role, branch_id, active } = req.body;
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const user = isNaN(userId)
+    ? null
+    : await run(supabase.from('users').select('*').eq('id', userId).maybeSingle());
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
   if (username && username.trim().toLowerCase() !== user.username.toLowerCase()) {
-    const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?) AND id != ?').get(username.trim(), userId);
-    if (existing) {
+    if (await usernameTaken(username, userId)) {
       return res.status(400).json({ error: 'Username is already taken' });
     }
   }
 
-  let passwordHash = user.password_hash;
-  if (password && password.trim()) {
-    passwordHash = bcrypt.hashSync(password.trim(), 8);
-  }
+  const newRole = role !== undefined && role !== null ? role : user.role;
+  const patch = {
+    branch_id: newRole === 'branch' ? (branch_id !== undefined ? branch_id : user.branch_id) : null
+  };
+  if (name !== undefined && name !== null) patch.name = name.trim();
+  if (username !== undefined && username !== null) patch.username = username.trim();
+  if (email !== undefined && email !== null) patch.email = email.trim();
+  if (phone !== undefined && phone !== null) patch.phone = phone.trim();
+  if (address !== undefined && address !== null) patch.address = address.trim();
+  if (role !== undefined && role !== null) patch.role = role;
+  if (active !== undefined && active !== null) patch.active = active ? 1 : 0;
+  if (password && password.trim()) patch.password_hash = bcrypt.hashSync(password.trim(), 8);
 
-  const newRole = role !== undefined ? role : user.role;
-  const newBranchId = newRole === 'branch' ? (branch_id !== undefined ? branch_id : user.branch_id) : null;
+  await run(supabase.from('users').update(patch).eq('id', userId));
 
-  db.prepare(`
-    UPDATE users
-    SET name = COALESCE(?, name),
-        username = COALESCE(?, username),
-        email = COALESCE(?, email),
-        phone = COALESCE(?, phone),
-        address = COALESCE(?, address),
-        password_hash = ?,
-        role = COALESCE(?, role),
-        branch_id = ?,
-        active = COALESCE(?, active)
-    WHERE id = ?
-  `).run(
-    name !== undefined ? name.trim() : null,
-    username !== undefined ? username.trim() : null,
-    email !== undefined ? email.trim() : null,
-    phone !== undefined ? phone.trim() : null,
-    address !== undefined ? address.trim() : null,
-    passwordHash,
-    role !== undefined ? role : null,
-    newBranchId,
-    active !== undefined ? (active ? 1 : 0) : null,
-    userId
-  );
-
-  const updated = db.prepare(`
-    SELECT u.id, u.name, u.username, u.email, u.phone, u.address, u.role, u.branch_id, u.active,
-           b.name as branch_name
-    FROM users u
-    LEFT JOIN branches b ON u.branch_id = b.id
-    WHERE u.id = ?
-  `).get(userId);
-
-  // Sync to Supabase if configured
-  if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-    try {
-      const fullUser = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
-      await supabase.from('users').upsert(fullUser, { onConflict: 'id' });
-    } catch (sbErr) {
-      console.warn('Supabase user update notice:', sbErr.message);
-    }
-  }
-
-  res.json(updated);
+  res.json(await getPublicUser(userId));
 });
 
 // DELETE /api/users/:id
@@ -144,28 +112,21 @@ router.delete('/:id', async (req, res) => {
     return res.status(400).json({ error: 'You cannot delete your own logged-in account' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  const user = isNaN(userId)
+    ? null
+    : await run(supabase.from('users').select('id, name, username').eq('id', userId).maybeSingle());
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
   try {
-    // Clean up foreign key references in related tables
-    db.prepare('UPDATE notifications SET user_id = NULL WHERE user_id = ?').run(userId);
-    db.prepare('UPDATE issue_updates SET updated_by = NULL WHERE updated_by = ?').run(userId);
-    db.prepare('UPDATE issues SET created_by = NULL WHERE created_by = ?').run(userId);
+    // Clean up references in related tables
+    await run(supabase.from('notifications').update({ user_id: null }).eq('user_id', userId));
+    await run(supabase.from('issue_updates').update({ updated_by: null }).eq('updated_by', userId));
+    await run(supabase.from('issues').update({ created_by: null }).eq('created_by', userId));
+    await run(supabase.from('private_labels').update({ created_by: null }).eq('created_by', userId));
 
-    // Delete user from SQLite
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
-    // Sync deletion to Supabase if active
-    if (supabase && (process.env.USE_SUPABASE === 'true' || process.env.SUPABASE_URL)) {
-      try {
-        await supabase.from('users').delete().eq('id', userId);
-      } catch (sbErr) {
-        console.warn('Supabase user delete notice:', sbErr.message);
-      }
-    }
+    await run(supabase.from('users').delete().eq('id', userId));
 
     res.json({ success: true, message: `User "${user.name}" (@${user.username}) deleted successfully` });
   } catch (err) {
@@ -175,4 +136,3 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
-

@@ -8,7 +8,8 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "npm run build --prefix client",
     "vercel-build": "npm install --prefix client && npm run build --prefix client",
-    "sync:supabase": "node server/sync_to_supabase.js"
+    "migrate:sqlite-to-supabase": "node server/migrate_sqlite_to_supabase.js",
+    "populate:ir": "node server/populate_ir_users.js"
   },
   "keywords": [
     "spar",
@@ -22,7 +23,6 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^5.3.0",
@@ -30,6 +30,7 @@
     "multer": "^2.5.0"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "better-sqlite3": "^13.0.3"
   }
 }
