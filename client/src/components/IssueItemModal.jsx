@@ -76,7 +76,7 @@ export default function IssueItemModal({ onClose, onSuccess }) {
 
       const payload = {
         item_type_id: parseInt(itemTypeId, 10),
-        slot_id: isHoarding && hoardingSizeId ? parseInt(hoardingSizeId, 10) : undefined,
+        hoarding_size_id: isHoarding && hoardingSizeId ? parseInt(hoardingSizeId, 10) : undefined,
         campaign: campaign.trim(),
         qty: parseInt(qty, 10) || 1,
         issue_date: issueDate,

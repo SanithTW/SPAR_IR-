@@ -32,6 +32,52 @@ function flattenIssue(row, { detail = false } = {}) {
   return flat;
 }
 
+// Map each branch to the hoarding slot an issue should reference.
+// - hoardingSizeId (from the Sizes master list): use each branch's existing slot
+//   with those exact dimensions, creating one for branches that lack it.
+// - slotId (a branch-specific slot): honoured only for the branch that owns it.
+async function resolveSlots(branchIds, hoardingSizeId, slotId) {
+  const result = {};
+  const sizeId = parseInt(hoardingSizeId, 10);
+
+  if (!isNaN(sizeId)) {
+    const size = await run(supabase.from('hoarding_sizes').select('*').eq('id', sizeId).maybeSingle());
+    if (!size) return result;
+
+    const existing = await run(
+      supabase.from('hoarding_slots').select('id, branch_id')
+        .in('branch_id', branchIds)
+        .eq('width', size.width).eq('height', size.height)
+        .eq('unit', size.unit).eq('orientation', size.orientation).eq('sides', size.sides)
+        .order('id')
+    );
+    for (const s of existing) if (!result[s.branch_id]) result[s.branch_id] = s.id;
+
+    const missing = branchIds.filter((b) => !result[b]);
+    if (missing.length) {
+      const created = await insert('hoarding_slots', missing.map((b) => ({
+        branch_id: b,
+        width: size.width,
+        height: size.height,
+        unit: size.unit,
+        orientation: size.orientation,
+        sides: size.sides,
+        qty: 1,
+        notes: 'Added automatically when issuing a hoarding'
+      })), 'id, branch_id');
+      for (const s of created) result[s.branch_id] = s.id;
+    }
+    return result;
+  }
+
+  const sid = parseInt(slotId, 10);
+  if (!isNaN(sid)) {
+    const slot = await run(supabase.from('hoarding_slots').select('id, branch_id').eq('id', sid).maybeSingle());
+    if (slot && branchIds.includes(slot.branch_id)) result[slot.branch_id] = slot.id;
+  }
+  return result;
+}
+
 function containsCI(value, term) {
   return (value || '').toLowerCase().includes(term);
 }
@@ -182,14 +228,13 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   const initialStatus = status === 'Pending' ? 'Pending' : 'Issued';
   const itemType = await run(supabase.from('item_types').select('name').eq('id', item_type_id).maybeSingle());
   const quantity = parseInt(qty, 10) || 1;
-  // Only a single-branch issue can target a specific hoarding slot
-  const targetSlotId = targetBranchIds.length === 1 ? (slot_id || null) : null;
+  const slotByBranch = await resolveSlots(targetBranchIds, req.body.hoarding_size_id, slot_id);
 
   // One multi-row insert so all issues are created atomically
   const created = await insert('issues', targetBranchIds.map((bId) => ({
     branch_id: bId,
     item_type_id,
-    slot_id: targetSlotId,
+    slot_id: slotByBranch[bId] || null,
     campaign: campaign.trim(),
     qty: quantity,
     issue_date,
