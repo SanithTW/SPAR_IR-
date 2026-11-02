@@ -225,29 +225,35 @@ export const uploadApi = {
   }
 };
 
-// Private Labels API
-export const privateLabelsApi = {
-  getAll: (params = {}) => {
-    const query = new URLSearchParams();
-    if (params.category && params.category !== 'All') query.append('category', params.category);
-    if (params.search) query.append('search', params.search);
-    const qs = query.toString();
-    return apiRequest(`/private-labels${qs ? `?${qs}` : ''}`);
-  },
-  getById: (id) => apiRequest(`/private-labels/${id}`),
-  create: (data) =>
-    apiRequest('/private-labels', {
-      method: 'POST',
-      body: JSON.stringify(data)
-    }),
-  update: (id, data) =>
-    apiRequest(`/private-labels/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    }),
-  delete: (id) =>
-    apiRequest(`/private-labels/${id}`, {
-      method: 'DELETE'
-    })
-};
+// Downloadable file libraries (Private Labels, Leaflets) share one REST shape
+function createLibraryApi(key) {
+  return {
+    key,
+    getAll: (params = {}) => {
+      const query = new URLSearchParams();
+      if (params.category && params.category !== 'All') query.append('category', params.category);
+      if (params.search) query.append('search', params.search);
+      const qs = query.toString();
+      return apiRequest(`/${key}${qs ? `?${qs}` : ''}`);
+    },
+    getById: (id) => apiRequest(`/${key}/${id}`),
+    create: (data) =>
+      apiRequest(`/${key}`, {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }),
+    update: (id, data) =>
+      apiRequest(`/${key}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data)
+      }),
+    delete: (id) =>
+      apiRequest(`/${key}/${id}`, {
+        method: 'DELETE'
+      })
+  };
+}
+
+export const privateLabelsApi = createLibraryApi('private-labels');
+export const leafletsApi = createLibraryApi('leaflets');
 

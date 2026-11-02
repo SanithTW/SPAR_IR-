@@ -125,6 +125,7 @@ router.delete('/:id', async (req, res) => {
     await run(supabase.from('issue_updates').update({ updated_by: null }).eq('updated_by', userId));
     await run(supabase.from('issues').update({ created_by: null }).eq('created_by', userId));
     await run(supabase.from('private_labels').update({ created_by: null }).eq('created_by', userId));
+    await run(supabase.from('leaflets').update({ created_by: null }).eq('created_by', userId));
 
     await run(supabase.from('users').delete().eq('id', userId));
 

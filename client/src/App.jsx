@@ -9,7 +9,7 @@ import BranchesManagement from './components/BranchesManagement';
 import SizesTypesManagement from './components/SizesTypesManagement';
 import ReportsView from './components/ReportsView';
 import UsersSettingsView from './components/UsersSettingsView';
-import PrivateLabelView from './components/PrivateLabelView';
+import PrivateLabelView, { LEAFLET_CONFIG } from './components/PrivateLabelView';
 import IssueItemModal from './components/IssueItemModal';
 import ItemDetailModal from './components/ItemDetailModal';
 
@@ -150,6 +150,15 @@ export default function App() {
               key={`private-labels-${refreshTrigger}`}
               user={user}
               searchQuery={searchQuery}
+            />
+          )}
+
+          {activeTab === 'leaflets' && (
+            <PrivateLabelView
+              key={`leaflets-${refreshTrigger}`}
+              user={user}
+              searchQuery={searchQuery}
+              config={LEAFLET_CONFIG}
             />
           )}
 

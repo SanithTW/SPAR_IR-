@@ -11,6 +11,7 @@ import {
   PackageCheck,
   Store,
   Tag,
+  Newspaper,
   X
 } from 'lucide-react';
 
@@ -26,7 +27,8 @@ export default function Sidebar({ user, activeTab, setActiveTab, isOpen = false,
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'my-calendar', label: 'My Calendar', icon: Calendar },
       { id: 'my-items', label: 'My Items', icon: PackageCheck },
-      { id: 'private-labels', label: 'Private Label', icon: Tag }
+      { id: 'private-labels', label: 'Private Label', icon: Tag },
+      { id: 'leaflets', label: 'Leaflets', icon: Newspaper }
     );
   } else {
     // Admin or Marketing User
@@ -41,6 +43,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, isOpen = false,
 
     navItems.push({ id: 'branches', label: 'Branches', icon: Building2 });
     navItems.push({ id: 'private-labels', label: 'Private Label', icon: Tag });
+    navItems.push({ id: 'leaflets', label: 'Leaflets', icon: Newspaper });
 
     if (isAdmin) {
       navItems.push({ id: 'sizes-types', label: 'Sizes & Types', icon: Layers });

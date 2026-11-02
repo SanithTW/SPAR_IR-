@@ -17,21 +17,53 @@ import {
   Eye,
   Calendar,
   User as UserIcon,
-  RefreshCw
+  RefreshCw,
+  Newspaper
 } from 'lucide-react';
-import { privateLabelsApi, uploadApi } from '../services/api';
+import { privateLabelsApi, leafletsApi, uploadApi } from '../services/api';
 
-const CATEGORIES = [
-  'All',
-  'Food & Beverages',
-  'Personal Care',
-  'Household & Cleaning',
-  'Packaging & Labels',
-  'Brand Guidelines',
-  'General'
-];
+// Each library page (Private Label, Leaflets) shares this view and differs only by config
+export const PRIVATE_LABEL_CONFIG = {
+  api: privateLabelsApi,
+  Icon: Tag,
+  singular: 'Private Label',
+  title: 'Private Label Library',
+  subtitle: 'Browse, inspect, and download official SPAR private label artwork, packaging templates, and brand specs.',
+  emptyText: 'No private label assets have been uploaded yet. Upload designs, artworks, and brand guidelines to share with all stores.',
+  namePlaceholder: 'e.g. SPAR Select Basmati Rice 5kg, SaveMor Laundry Detergent',
+  categories: [
+    'All',
+    'Food & Beverages',
+    'Personal Care',
+    'Household & Cleaning',
+    'Packaging & Labels',
+    'Brand Guidelines',
+    'General'
+  ]
+};
 
-export default function PrivateLabelView({ user, searchQuery = '' }) {
+export const LEAFLET_CONFIG = {
+  api: leafletsApi,
+  Icon: Newspaper,
+  singular: 'Leaflet',
+  title: 'Leaflets',
+  subtitle: 'Browse and download the latest SPAR promotional leaflets for your store.',
+  emptyText: 'No leaflets have been uploaded yet. Upload promotional leaflets to share with all stores.',
+  namePlaceholder: 'e.g. November Mega Savings Leaflet',
+  categories: [
+    'All',
+    'Monthly Promotion',
+    'Weekly Deals',
+    'Seasonal Offer',
+    'Festival',
+    'New Store Opening',
+    'General'
+  ]
+};
+
+export default function PrivateLabelView({ user, searchQuery = '', config = PRIVATE_LABEL_CONFIG }) {
+  const CATEGORIES = config.categories;
+  const ItemIcon = config.Icon;
   const isAdmin = user?.role === 'admin';
 
   const [items, setItems] = useState([]);
@@ -54,11 +86,11 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await privateLabelsApi.getAll();
+      const data = await config.api.getAll();
       setItems(data || []);
     } catch (err) {
       console.error('Failed to load private labels:', err);
-      setError(err.message || 'Failed to load private label items');
+      setError(err.message || `Failed to load ${config.singular.toLowerCase()} items`);
     } finally {
       setLoading(false);
     }
@@ -146,14 +178,14 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
                 boxShadow: '0 2px 6px rgba(213, 30, 39, 0.3)'
               }}
             >
-              <Tag size={20} />
+              <ItemIcon size={20} />
             </div>
             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Private Label Library
+              {config.title}
             </h1>
           </div>
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.9rem' }}>
-            Browse, inspect, and download official SPAR private label artwork, packaging templates, and brand specs.
+            {config.subtitle}
           </p>
         </div>
 
@@ -200,7 +232,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
               }}
             >
               <Plus size={18} />
-              Add Private Label
+              Add {config.singular}
             </button>
           )}
         </div>
@@ -374,7 +406,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
           <div className="spin" style={{ display: 'inline-block', marginBottom: '0.75rem' }}>
             <RefreshCw size={28} color="#d51e27" />
           </div>
-          <p style={{ margin: 0, fontWeight: 600 }}>Loading Private Label assets...</p>
+          <p style={{ margin: 0, fontWeight: 600 }}>Loading {config.singular} assets...</p>
         </div>
       ) : error ? (
         <div
@@ -388,7 +420,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
           }}
         >
           <AlertCircle size={32} style={{ marginBottom: '0.5rem' }} />
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Failed to load private labels</h3>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Failed to load {config.title.toLowerCase()}</h3>
           <p style={{ margin: '0 0 1rem 0', fontSize: '0.9rem' }}>{error}</p>
           <button
             onClick={loadPrivateLabels}
@@ -429,15 +461,15 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
               color: '#94a3b8'
             }}
           >
-            <Tag size={32} />
+            <ItemIcon size={32} />
           </div>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', color: '#1e293b' }}>
-            No Private Label assets found
+            No {config.singular} assets found
           </h3>
           <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.9rem', maxWidth: '420px', marginLeft: 'auto', marginRight: 'auto' }}>
             {effectiveSearch || selectedCategory !== 'All' || selectedType !== 'all'
               ? 'No assets match your search or filter criteria. Try clearing filters.'
-              : 'No private label assets have been uploaded yet. Upload designs, artworks, and brand guidelines to share with all stores.'}
+              : config.emptyText}
           </p>
           {isAdmin && (
             <button
@@ -457,7 +489,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
               }}
             >
               <Plus size={16} />
-              Upload First Private Label
+              Upload First {config.singular}
             </button>
           )}
         </div>
@@ -737,7 +769,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
                         <>
                           <button
                             onClick={() => setEditingItem(item)}
-                            title="Edit Private Label"
+                            title={`Edit ${config.singular}`}
                             style={{
                               padding: '0.55rem',
                               background: '#ffffff',
@@ -756,7 +788,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
                           </button>
                           <button
                             onClick={() => setDeletingItem(item)}
-                            title="Delete Private Label"
+                            title={`Delete ${config.singular}`}
                             style={{
                               padding: '0.55rem',
                               background: '#ffffff',
@@ -787,6 +819,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
       {/* Add / Edit Modal */}
       {(showAddModal || editingItem) && (
         <PrivateLabelFormModal
+          config={config}
           item={editingItem}
           onClose={() => {
             setShowAddModal(false);
@@ -803,6 +836,7 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
       {/* Delete Confirmation Modal */}
       {deletingItem && (
         <DeleteConfirmModal
+          config={config}
           item={deletingItem}
           onClose={() => setDeletingItem(null)}
           onSuccess={() => {
@@ -917,7 +951,8 @@ export default function PrivateLabelView({ user, searchQuery = '' }) {
 // ==========================================
 // FORM MODAL (Add / Edit)
 // ==========================================
-function PrivateLabelFormModal({ item, onClose, onSuccess }) {
+function PrivateLabelFormModal({ config, item, onClose, onSuccess }) {
+  const ItemIcon = config.Icon;
   const isEdit = !!item;
 
   const [title, setTitle] = useState(item?.title || '');
@@ -1003,7 +1038,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError('Private label name is required.');
+      setError(`${config.singular} name is required.`);
       return;
     }
 
@@ -1041,15 +1076,15 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
       };
 
       if (isEdit) {
-        await privateLabelsApi.update(item.id, payload);
+        await config.api.update(item.id, payload);
       } else {
-        await privateLabelsApi.create(payload);
+        await config.api.create(payload);
       }
 
       onSuccess();
     } catch (err) {
       console.error('Save failed:', err);
-      setError(err.message || 'Failed to save private label item');
+      setError(err.message || `Failed to save ${config.singular.toLowerCase()}`);
       setSaving(false);
     }
   };
@@ -1108,10 +1143,10 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
                 justifyContent: 'center'
               }}
             >
-              <Tag size={18} />
+              <ItemIcon size={18} />
             </div>
             <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
-              {isEdit ? 'Edit Private Label' : 'Add New Private Label'}
+              {isEdit ? `Edit ${config.singular}` : `Add New ${config.singular}`}
             </h3>
           </div>
           <button
@@ -1149,14 +1184,14 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
             </div>
           )}
 
-          {/* Private Label Name */}
+          {/* Name */}
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.4rem' }}>
-              Private Label Name <span style={{ color: '#d51e27' }}>*</span>
+              {config.singular} Name <span style={{ color: '#d51e27' }}>*</span>
             </label>
             <input
               type="text"
-              placeholder="e.g. SPAR Select Basmati Rice 5kg, SaveMor Laundry Detergent"
+              placeholder={config.namePlaceholder}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -1191,7 +1226,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
                 boxSizing: 'border-box'
               }}
             >
-              {CATEGORIES.filter(c => c !== 'All').map(c => (
+              {config.categories.filter(c => c !== 'All').map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -1231,7 +1266,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
               onDragEnter={handleDragEnter}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              onClick={() => document.getElementById('private-label-file-input').click()}
+              onClick={() => document.getElementById(`${config.api.key}-file-input`).click()}
               style={{
                 border: isDragging ? '2px dashed #d51e27' : '2px dashed #cbd5e1',
                 borderRadius: '12px',
@@ -1246,7 +1281,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
               }}
             >
               <input
-                id="private-label-file-input"
+                id={`${config.api.key}-file-input`}
                 type="file"
                 accept=".jpg,.jpeg,.png,.pdf"
                 onChange={handleFileChange}
@@ -1383,7 +1418,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
               ) : isEdit ? (
                 'Save Changes'
               ) : (
-                'Upload Private Label'
+                `Upload ${config.singular}`
               )}
             </button>
           </div>
@@ -1396,7 +1431,7 @@ function PrivateLabelFormModal({ item, onClose, onSuccess }) {
 // ==========================================
 // DELETE CONFIRMATION MODAL
 // ==========================================
-function DeleteConfirmModal({ item, onClose, onSuccess }) {
+function DeleteConfirmModal({ config, item, onClose, onSuccess }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -1404,11 +1439,11 @@ function DeleteConfirmModal({ item, onClose, onSuccess }) {
     setDeleting(true);
     setError(null);
     try {
-      await privateLabelsApi.delete(item.id);
+      await config.api.delete(item.id);
       onSuccess();
     } catch (err) {
       console.error('Delete failed:', err);
-      setError(err.message || 'Failed to delete private label');
+      setError(err.message || `Failed to delete ${config.singular.toLowerCase()}`);
       setDeleting(false);
     }
   };
@@ -1457,7 +1492,7 @@ function DeleteConfirmModal({ item, onClose, onSuccess }) {
         </div>
 
         <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
-          Delete Private Label Asset?
+          Delete {config.singular} Asset?
         </h3>
 
         <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>

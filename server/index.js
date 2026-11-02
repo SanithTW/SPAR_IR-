@@ -13,7 +13,7 @@ const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
 const settingsRoutes = require('./routes/settings');
 const uploadRoutes = require('./routes/upload');
-const privateLabelRoutes = require('./routes/privateLabels');
+const { createLibraryRouter } = require('./routes/library');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,7 +32,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/private-labels', privateLabelRoutes);
+app.use('/api/private-labels', createLibraryRouter('private_labels', 'Private label'));
+app.use('/api/leaflets', createLibraryRouter('leaflets', 'Leaflet'));
 
 // Health check
 app.get('/api/health', (req, res) => {
